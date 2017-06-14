@@ -1,0 +1,58 @@
+import java_cup.runtime.*;
+
+
+parser code {:
+
+    public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+:};
+
+
+
+// Terminal tokens
+terminal INT, DOUBLE, ID;
+terminal PRINT, IF, WHILE,  THEN, ELSE;
+terminal RO, RC, BO, BC, SC, CM, SO, S;
+terminal PLUS, MINUS, STAR, DIV;
+terminal MIN, MAJ, MIN_EQ, EQ_MIN, MAJ_EQ, EQ_MAJ, EQ;
+terminal AND, OR, NOT;
+terminal INT_TYPE, DOUBLE_TYPE;
+
+
+// Non terminal tokens
+non terminal prog, dl, il, d, i, t , vl, v, a, ex, n, op;
+
+
+//////////////////////////////////////
+// Grammar start
+//////////////////////////////////////
+
+start with prog;
+
+prog  ::= dl il;
+dl    ::= dl d 
+        | d ;
+d     ::= t vl S ;
+vl    ::= vl CM v
+        | v ;
+v     ::= ID SO INT SC
+        | ID ;
+t     ::= INT_TYPE 
+        | DOUBLE_TYPE ;
+il    ::= il i
+        | i ;
+i     ::= a ;
+a     ::= v EQ ex S ;
+ex    ::= ex op n 
+        | RO ex RC
+        | n ;
+n     ::= INT | DOUBLE ;
+op    ::= PLUS | MINUS | STAR | DIV ;

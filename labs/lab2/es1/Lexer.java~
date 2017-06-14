@@ -34,12 +34,12 @@ class Lexer {
    */
   private static final String ZZ_CMAP_PACKED = 
     "\11\0\1\53\1\2\1\21\1\21\1\1\22\0\1\53\1\41\1\0"+
-    "\1\11\2\0\1\37\1\0\1\26\1\27\1\30\1\5\1\34\1\6"+
-    "\1\10\1\31\1\4\11\7\1\0\1\33\1\35\1\32\1\36\2\0"+
-    "\32\3\1\24\1\0\1\25\1\0\1\3\1\0\1\3\1\44\1\14"+
+    "\1\11\2\0\1\37\1\0\1\30\1\31\1\23\1\5\1\34\1\6"+
+    "\1\10\1\22\1\4\11\7\1\0\1\33\1\35\1\32\1\36\2\0"+
+    "\32\3\1\26\1\0\1\27\1\0\1\3\1\0\1\3\1\44\1\14"+
     "\1\17\1\20\1\45\1\3\1\50\1\12\2\3\1\15\1\3\1\13"+
     "\1\43\1\51\1\3\1\52\1\46\1\42\1\16\1\3\1\47\3\3"+
-    "\1\22\1\40\1\23\7\0\1\21\u1fa2\0\1\21\1\21\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\udfe6\0";
+    "\1\24\1\40\1\25\7\0\1\21\u1fa2\0\1\21\1\21\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\uffff\0\udfe6\0";
 
   /** 
    * Translates characters to character classes
@@ -55,12 +55,13 @@ class Lexer {
     "\2\0\1\1\2\2\1\3\1\4\1\5\1\6\1\4"+
     "\1\7\1\1\3\3\1\10\1\11\1\12\1\13\1\14"+
     "\1\15\1\16\1\17\1\20\1\21\1\22\1\23\1\24"+
-    "\1\25\1\26\1\27\2\3\1\4\1\30\1\0\1\3"+
-    "\1\31\4\3\1\0\1\32\4\3\1\0\1\3\1\33"+
-    "\2\3\1\0\1\3\1\34\1\35\1\0\1\36\2\0";
+    "\1\25\1\26\1\27\2\3\1\2\1\4\1\30\1\0"+
+    "\1\3\1\31\2\3\1\32\2\3\1\2\1\33\1\0"+
+    "\1\34\4\3\1\0\1\3\1\35\2\3\1\0\1\3"+
+    "\1\36\1\37\1\0\1\40\2\0";
 
   private static int [] zzUnpackAction() {
-    int [] result = new int[61];
+    int [] result = new int[65];
     int offset = 0;
     offset = zzUnpackAction(ZZ_ACTION_PACKED_0, offset, result);
     return result;
@@ -86,16 +87,17 @@ class Lexer {
 
   private static final String ZZ_ROWMAP_PACKED_0 =
     "\0\0\0\54\0\130\0\204\0\130\0\260\0\334\0\u0108"+
-    "\0\u0108\0\u0134\0\u0160\0\u018c\0\u01b8\0\u01e4\0\u0210\0\130"+
+    "\0\u0108\0\u0134\0\u0160\0\u018c\0\u01b8\0\u01e4\0\u0210\0\u023c"+
     "\0\130\0\130\0\130\0\130\0\130\0\130\0\130\0\130"+
-    "\0\130\0\130\0\130\0\130\0\130\0\130\0\130\0\u023c"+
-    "\0\u0268\0\u0294\0\u0160\0\u02c0\0\u02ec\0\260\0\u0318\0\u0344"+
-    "\0\u0370\0\u039c\0\u03c8\0\260\0\u03f4\0\u0420\0\u044c\0\u0478"+
-    "\0\u04a4\0\u04d0\0\260\0\u04fc\0\u0528\0\u0554\0\u0580\0\260"+
-    "\0\260\0\u05ac\0\260\0\u05d8\0\u0604";
+    "\0\130\0\130\0\130\0\130\0\130\0\130\0\130\0\u0268"+
+    "\0\u0294\0\u02c0\0\u02ec\0\u0160\0\u0318\0\u0344\0\260\0\u0370"+
+    "\0\u039c\0\130\0\u03c8\0\u03f4\0\u0420\0\130\0\u044c\0\260"+
+    "\0\u0478\0\u04a4\0\u04d0\0\u04fc\0\u0528\0\u0554\0\260\0\u0580"+
+    "\0\u05ac\0\u05d8\0\u0604\0\260\0\260\0\u0630\0\260\0\u065c"+
+    "\0\u0688";
 
   private static int [] zzUnpackRowMap() {
-    int [] result = new int[61];
+    int [] result = new int[65];
     int offset = 0;
     offset = zzUnpackRowMap(ZZ_ROWMAP_PACKED_0, offset, result);
     return result;
@@ -122,39 +124,40 @@ class Lexer {
     "\1\13\1\14\1\15\4\6\1\16\1\17\1\3\1\20"+
     "\1\21\1\22\1\23\1\24\1\25\1\26\1\27\1\30"+
     "\1\31\1\32\1\33\1\34\1\35\1\36\1\37\5\6"+
-    "\1\40\1\6\1\41\1\6\1\5\54\3\56\0\1\5"+
-    "\54\0\2\6\2\0\1\6\2\0\7\6\21\0\11\6"+
-    "\5\0\1\42\2\0\1\42\1\43\47\0\1\42\2\0"+
-    "\1\12\50\0\1\12\2\0\1\12\1\43\47\0\1\43"+
-    "\2\0\1\43\56\0\1\44\44\0\2\6\2\0\1\6"+
-    "\2\0\1\6\1\45\5\6\21\0\3\6\1\46\5\6"+
-    "\4\0\2\6\2\0\1\6\2\0\7\6\21\0\1\6"+
-    "\1\47\7\6\4\0\2\6\2\0\1\6\2\0\3\6"+
-    "\1\50\3\6\21\0\11\6\4\0\2\6\2\0\1\6"+
-    "\2\0\7\6\21\0\6\6\1\51\2\6\4\0\2\6"+
-    "\2\0\1\6\2\0\7\6\21\0\10\6\1\52\5\0"+
-    "\1\42\2\0\1\42\57\0\1\53\43\0\2\6\2\0"+
-    "\1\6\2\0\7\6\21\0\1\54\10\6\4\0\2\6"+
-    "\2\0\1\6\2\0\4\6\1\55\2\6\21\0\11\6"+
+    "\1\40\1\6\1\41\1\6\24\5\1\42\30\5\56\0"+
+    "\1\5\54\0\2\6\2\0\1\6\2\0\7\6\21\0"+
+    "\11\6\5\0\1\43\2\0\1\43\1\44\47\0\1\43"+
+    "\2\0\1\12\50\0\1\12\2\0\1\12\1\44\47\0"+
+    "\1\44\2\0\1\44\56\0\1\45\44\0\2\6\2\0"+
+    "\1\6\2\0\1\6\1\46\5\6\21\0\3\6\1\47"+
+    "\5\6\4\0\2\6\2\0\1\6\2\0\7\6\21\0"+
+    "\1\6\1\50\7\6\4\0\2\6\2\0\1\6\2\0"+
+    "\3\6\1\51\3\6\21\0\11\6\24\0\1\52\33\0"+
+    "\2\6\2\0\1\6\2\0\7\6\21\0\6\6\1\53"+
+    "\2\6\4\0\2\6\2\0\1\6\2\0\7\6\21\0"+
+    "\10\6\1\54\1\0\22\55\1\56\1\42\30\55\4\0"+
+    "\1\43\2\0\1\43\57\0\1\57\43\0\2\6\2\0"+
+    "\1\6\2\0\7\6\21\0\1\60\10\6\4\0\2\6"+
+    "\2\0\1\6\2\0\4\6\1\61\2\6\21\0\11\6"+
     "\4\0\2\6\2\0\1\6\2\0\7\6\21\0\4\6"+
-    "\1\56\4\6\4\0\2\6\2\0\1\6\2\0\1\57"+
+    "\1\62\4\6\4\0\2\6\2\0\1\6\2\0\1\63"+
     "\6\6\21\0\11\6\4\0\2\6\2\0\1\6\2\0"+
-    "\1\60\6\6\21\0\11\6\15\0\1\61\42\0\2\6"+
-    "\2\0\1\6\2\0\7\6\21\0\2\6\1\62\6\6"+
-    "\4\0\2\6\2\0\1\6\2\0\6\6\1\63\21\0"+
-    "\11\6\4\0\2\6\2\0\1\6\2\0\3\6\1\64"+
-    "\3\6\21\0\11\6\4\0\2\6\2\0\1\6\2\0"+
-    "\1\6\1\65\5\6\21\0\11\6\16\0\1\66\41\0"+
-    "\2\6\2\0\1\6\2\0\3\6\1\67\3\6\21\0"+
-    "\11\6\4\0\2\6\2\0\1\6\2\0\6\6\1\70"+
-    "\21\0\11\6\4\0\2\6\2\0\1\6\2\0\7\6"+
-    "\21\0\1\71\10\6\17\0\1\72\40\0\2\6\2\0"+
-    "\1\6\2\0\6\6\1\73\21\0\11\6\20\0\1\74"+
-    "\54\0\1\75\33\0\1\75\1\0\1\5\16\75\1\0"+
-    "\32\75";
+    "\1\64\6\6\21\0\11\6\1\0\22\55\1\0\31\55"+
+    "\14\0\1\65\42\0\2\6\2\0\1\6\2\0\7\6"+
+    "\21\0\2\6\1\66\6\6\4\0\2\6\2\0\1\6"+
+    "\2\0\6\6\1\67\21\0\11\6\4\0\2\6\2\0"+
+    "\1\6\2\0\3\6\1\70\3\6\21\0\11\6\4\0"+
+    "\2\6\2\0\1\6\2\0\1\6\1\71\5\6\21\0"+
+    "\11\6\16\0\1\72\41\0\2\6\2\0\1\6\2\0"+
+    "\3\6\1\73\3\6\21\0\11\6\4\0\2\6\2\0"+
+    "\1\6\2\0\6\6\1\74\21\0\11\6\4\0\2\6"+
+    "\2\0\1\6\2\0\7\6\21\0\1\75\10\6\17\0"+
+    "\1\76\40\0\2\6\2\0\1\6\2\0\6\6\1\77"+
+    "\21\0\11\6\20\0\1\100\54\0\1\101\33\0\1\101"+
+    "\1\0\1\5\16\101\1\0\32\101";
 
   private static int [] zzUnpackTrans() {
-    int [] result = new int[1584];
+    int [] result = new int[1716];
     int offset = 0;
     offset = zzUnpackTrans(ZZ_TRANS_PACKED_0, offset, result);
     return result;
@@ -192,12 +195,12 @@ class Lexer {
   private static final int [] ZZ_ATTRIBUTE = zzUnpackAttribute();
 
   private static final String ZZ_ATTRIBUTE_PACKED_0 =
-    "\2\0\1\11\1\1\1\11\12\1\20\11\4\1\1\0"+
-    "\6\1\1\0\5\1\1\0\4\1\1\0\3\1\1\0"+
-    "\1\1\2\0";
+    "\2\0\1\11\1\1\1\11\13\1\17\11\5\1\1\0"+
+    "\4\1\1\11\3\1\1\11\1\0\5\1\1\0\4\1"+
+    "\1\0\3\1\1\0\1\1\2\0";
 
   private static int [] zzUnpackAttribute() {
-    int [] result = new int[61];
+    int [] result = new int[65];
     int offset = 0;
     offset = zzUnpackAttribute(ZZ_ATTRIBUTE_PACKED_0, offset, result);
     return result;
@@ -590,123 +593,131 @@ class Lexer {
           case 1: 
             { System.out.print(yytext());
             }
-          case 31: break;
+          case 33: break;
           case 2: 
             { ;
             }
-          case 32: break;
+          case 34: break;
           case 3: 
             { System.out.print("ID:"+yytext()+" ");
             }
-          case 33: break;
+          case 35: break;
           case 4: 
             { System.out.print("INT:"+yytext()+" ");
             }
-          case 34: break;
+          case 36: break;
           case 5: 
             { System.out.print("PLUS ");
             }
-          case 35: break;
+          case 37: break;
           case 6: 
             { System.out.print("MINUS ");
             }
-          case 36: break;
+          case 38: break;
           case 7: 
             { System.out.print("DOT ");
             }
-          case 37: break;
-          case 8: 
-            { System.out.print("BO ");
-            }
-          case 38: break;
-          case 9: 
-            { System.out.print("BC ");
-            }
           case 39: break;
-          case 10: 
-            { System.out.print("SO ");
-            }
-          case 40: break;
-          case 11: 
-            { System.out.print("SC ");
-            }
-          case 41: break;
-          case 12: 
-            { System.out.print("RO ");
-            }
-          case 42: break;
-          case 13: 
-            { System.out.print("RC ");
-            }
-          case 43: break;
-          case 14: 
-            { System.out.print("MUL ");
-            }
-          case 44: break;
-          case 15: 
+          case 8: 
             { System.out.print("DIV ");
             }
+          case 40: break;
+          case 9: 
+            { System.out.print("MUL ");
+            }
+          case 41: break;
+          case 10: 
+            { System.out.print("BO ");
+            }
+          case 42: break;
+          case 11: 
+            { System.out.print("BC ");
+            }
+          case 43: break;
+          case 12: 
+            { System.out.print("SO ");
+            }
+          case 44: break;
+          case 13: 
+            { System.out.print("SC ");
+            }
           case 45: break;
+          case 14: 
+            { System.out.print("RO ");
+            }
+          case 46: break;
+          case 15: 
+            { System.out.print("RC ");
+            }
+          case 47: break;
           case 16: 
             { System.out.print("EQ ");
             }
-          case 46: break;
+          case 48: break;
           case 17: 
             { System.out.print("S ");
             }
-          case 47: break;
+          case 49: break;
           case 18: 
             { System.out.print("C ");
             }
-          case 48: break;
+          case 50: break;
           case 19: 
             { System.out.print("MIN ");
             }
-          case 49: break;
+          case 51: break;
           case 20: 
             { System.out.print("MAJ ");
             }
-          case 50: break;
+          case 52: break;
           case 21: 
             { System.out.print("AND ");
             }
-          case 51: break;
+          case 53: break;
           case 22: 
             { System.out.print("OR ");
             }
-          case 52: break;
+          case 54: break;
           case 23: 
             { System.out.print("NOT ");
             }
-          case 53: break;
+          case 55: break;
           case 24: 
             { System.out.print("DOUBLE:"+yytext()+" ");
             }
-          case 54: break;
+          case 56: break;
           case 25: 
             { System.out.print("IF ");
             }
-          case 55: break;
-          case 26: 
-            { System.out.print("INT_TYPE ");
-            }
-          case 56: break;
-          case 27: 
-            { System.out.print("ELSE ");
-            }
           case 57: break;
-          case 28: 
-            { System.out.print("WHILE ");
+          case 26: 
+            { yybegin(COMMENT);
             }
           case 58: break;
-          case 29: 
-            { System.out.print("PRINT ");
+          case 27: 
+            { yybegin(YYINITIAL);
             }
           case 59: break;
-          case 30: 
-            { System.out.print("DOUBLE_TYPE ");
+          case 28: 
+            { System.out.print("INT_TYPE ");
             }
           case 60: break;
+          case 29: 
+            { System.out.print("ELSE ");
+            }
+          case 61: break;
+          case 30: 
+            { System.out.print("WHILE ");
+            }
+          case 62: break;
+          case 31: 
+            { System.out.print("PRINT ");
+            }
+          case 63: break;
+          case 32: 
+            { System.out.print("DOUBLE_TYPE ");
+            }
+          case 64: break;
           default:
             zzScanError(ZZ_NO_MATCH);
         }
