@@ -1,0 +1,43 @@
+import java_cup.runtime.*;
+
+parser code {:
+
+   public void report_error(String message, Object info) {
+      System.err.print("ERROR: Syntax error");
+      if(info instanceof Symbol)
+         if(((Symbol)info).left != -1){
+            int line = (((Symbol)info).left)+1;
+            int column = (((Symbol)info).right)+1;
+            System.err.print(" (linea "+line+", colonna "+column+"): ");
+         } else System.err.print(": ");
+      else System.err.print(": ");
+   }
+:};
+
+// Terminal tokens
+terminal NAME, ISBN, LT, GE, D;
+terminal C, S, CM, MAJ, N, L, SL, PERC;
+
+
+// Non terminal tokens
+non terminal lib, wl, w, bl, b, ul, u, ll, l;
+
+//Grammar start
+
+start with lib;
+
+lib   ::=   wl PERC PERC ul;
+wl    ::=   wl w S
+        |   w S;
+w     ::=   NAME D MAJ bl;
+bl    ::=   bl CM b
+        |   b;
+b     ::=   ISBN C NAME C N C LT GE N L
+        |   ISBN C NAME C N C LT GE N
+        |   ISBN C NAME C N;
+ul    ::=   ul u S
+        |   u S;
+u     ::=   NAME C ll;
+ll    ::=   ll CM l
+        |   l;
+l     ::=   N SL N SL N ISBN;
