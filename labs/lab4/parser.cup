@@ -1,0 +1,50 @@
+import java_cup.runtime.*;
+import java.io.*;
+
+parser code {:
+   public static void main(String args[]){
+      try {
+         scanner s = new scanner(new FileReader(args[0]));
+         parser p = new parser(s);
+         Object result = p.parse().value;
+      } catch (Exception e){
+         e.printStackTrace();
+      }
+   }
+
+   public void report_error(String message, Object info) {
+      System.err.print("ERROR: Syntax error");
+      if(info instanceof Symbol)
+         if(((Symbol)info).left != -1){
+            int line = (((Symbol)info).left)+1;
+            int column = (((Symbol)info).right)+1;
+            System.err.print(" (linea "+line+", colonna "+column+" ): "+message);
+         } else System.err.print(": "+message);
+      else System.err.print(": "+message);
+   }
+
+:};
+
+// Terminal tokens
+terminal DOT, REND, ISTR, CM, RO, RC, ATOM, VARIABLE;
+
+// Non terimnal tokens
+non terminal prog, fl, fact, erl, rl, rule, inter, pl, predicate, functor, al, arg;
+
+start with prog;
+
+prog        ::=   fl erl inter | fl inter erl 
+              |   erl fl inter | erl inter fl 
+              |   inter erl fl |inter fl erl;
+fl          ::=   fact | fl fact;
+erl         ::=   rl |;
+rl          ::=   rule | rl rule;
+inter       ::=   ISTR pl DOT;
+pl          ::=   predicate | pl CM predicate;
+fact        ::=   predicate DOT;
+rule        ::=   predicate REND;
+predicate   ::=   ATOM | functor al RC;
+functor     ::=   ATOM RO;
+al          ::=   arg | al CM arg;
+arg         ::=   predicate | VARIABLE;
+
