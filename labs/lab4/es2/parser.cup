@@ -1,0 +1,101 @@
+import java_cup.runtime.*;
+
+
+parser code {:
+   public boolean error_found = false;
+   
+   public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+        error_found = true;
+    }
+
+    public void syntax_error(Symbol cur_token){}
+
+    public Symbol getToken(){
+      return ((Symbol)stack.elementAt(tos));
+   }
+
+:};
+
+
+
+// Terminal tokens
+terminal INT, DOUBLE, ID;
+terminal PRINT, IF, WHILE,  THEN, ELSE;
+terminal RO, RC, BO, BC, SC, CM, SO, S;
+terminal PLUS, MINUS, STAR, DIV;
+terminal MIN, MAJ, MIN_EQ, EQ_MIN, MAJ_EQ, EQ_MAJ, EQ;
+terminal AND, OR, NOT;
+terminal INT_TYPE, DOUBLE_TYPE;
+terminal UMINUS;
+
+
+// Non terminal tokens
+non terminal prog, dl, il, d, i, t , vl, v, a, ex, n, op, w_cycle, if_cond, cond, comp, print, opr;
+
+precedence left OR;
+precedence left AND;
+precedence left NOT;
+precedence left MIN, MAJ, MIN_EQ, EQ_MIN, MAJ_EQ, EQ_MAJ, EQ;
+precedence left PLUS, MINUS;
+precedence left STAR, DIV;
+precedence left UMINUS;
+
+
+//////////////////////////////////////
+// Grammar start
+//////////////////////////////////////
+
+start with prog;
+
+prog     ::= dl il {: if(error_found) return null;
+                     System.out.println("program correctly recognized); :};
+
+dl       ::= dl d 
+           | d ;
+d        ::= t vl S 
+           | t error S {: parser.report_error("Declaration error", parser.getToken()) :};
+vl       ::= vl CM v
+           | v ;
+v        ::= ID SO INT SC
+           | ID SO ID SC
+           | ID ;
+t        ::= INT_TYPE 
+           | DOUBLE_TYPE ;
+il       ::= il i
+           | i ;
+i        ::= a 
+           | w_cycle
+           | if_cond 
+           | print ;
+a        ::= v EQ ex S ;
+ex       ::= ex op opr 
+           | RO ex RC
+           | opr ;
+opr      ::= n | v ;
+w_cycle  ::= WHILE RO cond RC BO il BC 
+           | WHILE RO cond RC BO error BC {:parser.report_error("missing ';' symbol after a statement", parser.getToken()); :}
+           | WHILE RO error RC BO il BC {:parser.report_error("error in condition", parser.getToken()); :}
+           | WHILE RO error RC BO il BC {:parser.report_error("error in condition", parser.getToken()); :};
+if_cond  ::= IF RO cond RC BO il BC 
+           | IF RO cond RC BO error BC {:parser.report_error("missing ';' symbol after a statement", parser.getToken()); :}
+           | IF RO cond RC i 
+           | IF RO error RC BO il BC {:parser.report_error("error in condition", parser.getToken()); :}
+           | IF RO error RC i  {:parser.report_error("error in condition", parser.getToken()); :};
+
+cond     ::= ex comp ex 
+           | cond AND cond
+           | cond OR cond
+           | NOT cond ;
+comp     ::= MIN | MAJ | MIN_EQ | EQ_MIN | MAJ_EQ | EQ_MAJ | EQ EQ ;
+print    ::= PRINT v S ;
+n        ::= MINUS INT | MINUS DOUBLE | INT | DOUBLE;
+op       ::= PLUS | MINUS | STAR | DIV ;
+

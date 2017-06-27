@@ -2,6 +2,10 @@ import java_cup.runtime.*;
 import java.io.*;
 
 parser code {:
+   
+   public static boolean fact_found = false;
+   public static boolean error_found = false;
+
    public static void main(String args[]){
       try {
          scanner s = new scanner(new FileReader(args[0]));
@@ -23,26 +27,46 @@ parser code {:
       else System.err.print(": "+message);
    }
 
+   public void syntax_error(Symbol cur_token){}
+
+   public Symbol getToken() {
+      return ((Symbol)stack.elementAt(tos));
+   }
+
 :};
 
 // Terminal tokens
 terminal DOT, REND, ISTR, CM, RO, RC, ATOM, VARIABLE;
 
 // Non terimnal tokens
-non terminal prog, fl, fact, erl, rl, rule, inter, pl, predicate, functor, al, arg;
+non terminal prog, elems, elem, fact, rule, inter, pl, predicate, functor, al, arg;
 
 start with prog;
 
-prog        ::=   fl erl inter | fl inter erl 
-              |   erl fl inter | erl inter fl 
-              |   inter erl fl |inter fl erl;
-fl          ::=   fact | fl fact;
-erl         ::=   rl |;
-rl          ::=   rule | rl rule;
-inter       ::=   ISTR pl DOT;
+prog        ::=   elems inter elems {:
+               if(!parser.fact_found || parser.error_found)
+                  return null;
+               System.out.println("Program correctly recognized");
+            :};
+elems       ::=   elems elem |;
+elem        ::=   fact | rule;
+inter       ::=   ISTR pl DOT |
+                  ISTR error DOT {:
+               parser.report_error("Error in interrogation\n", parser.getToken());
+               parser.error_found = true;
+            :};
 pl          ::=   predicate | pl CM predicate;
-fact        ::=   predicate DOT;
-rule        ::=   predicate REND;
+fact        ::=   predicate DOT {:
+               parser.fact_found = true;
+            :}    | error DOT {:
+               parser.report_error("Error in fact\n", parser.getToken());
+               parser.error_found = true;
+            :};
+rule        ::=   predicate REND pl DOT |
+                  error REND pl DOT {: 
+               parser.report_error("Error in rule\n", parser.getToken());
+               parser.error_found = true;
+            :};
 predicate   ::=   ATOM | functor al RC;
 functor     ::=   ATOM RO;
 al          ::=   arg | al CM arg;
