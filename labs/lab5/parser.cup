@@ -1,0 +1,103 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+
+init with {:
+   scalars = new HashMap<Character, Double>();
+   vectors = new HashMap<Character, parser.Vector>();
+:};
+
+parser code {:
+   
+   static class Vector{
+      public double e1;
+      public double e2;
+
+      public Vector(Double e1, Double e2) {
+         this.e1 = e1;
+         this.e2 = e2;
+      }
+   }
+   
+
+   public boolean error_found = false;
+   public HashMap<Character, Double> scalars;
+   public HashMap<Character, parser.Vector> vectors;
+   
+   public void report_error(String message, Object info) {
+      System.err.print("ERROR: Syntax error");
+      if(info instanceof Symbol)
+         if(((Symbol)info).left != -1){
+            int line = (((Symbol)info).left)+1;
+            int column = (((Symbol)info).right)+1;
+            System.err.print(" (line "+line+", column "+column+"). ");
+         } else System.err.print(": ");
+       else System.err.print(": ");
+       error_found = true;
+   }
+
+:};
+
+// Terminal tokens
+terminal Double NUM;
+terminal Character SVAR;
+terminal Character VVAR;
+terminal POW, MUL, DIV, PROD, SUM, SUB, EQ;
+terminal SO, SC, RO, RC, SEM, CM, END;
+terminal UMINUS;
+
+
+
+// NON Terminal tokens
+non terminal Object session, expr_list, expr, scalar_expr_p, vector_expr_p;
+non terminal Object scalar_assign, vector_assign;
+non terminal Double scalar_expr;
+non terminal parser.Vector vector_expr, vector;
+
+
+precedence left SUB, SUM;
+precedence left PROD, DIV, MUL;
+precedence left POW;
+precedence left UMINUS;
+
+start with session;
+
+session           ::=   expr_list END;
+expr_list         ::=   expr_list SEM expr | expr;
+expr              ::=   scalar_expr_p | vector_expr_p | scalar_assign | vector_assign;
+scalar_expr_p     ::=   scalar_expr:e {:
+         System.out.println("scalar expression: " + e);
+:};
+vector_expr_p     ::=   vector_expr:e {:
+         System.out.println("vector expression: ["+e.e1+", "+e.e2+"]");
+:};
+
+
+scalar_expr       ::=   scalar_expr:x SUM scalar_expr:y {: RESULT = x + y; :}
+                    |   scalar_expr:x SUB scalar_expr:y {: RESULT = x - y; :}
+                    |   scalar_expr:x MUL scalar_expr:y {: RESULT = x * y; :}
+                    |   scalar_expr:x DIV scalar_expr:y {: RESULT = x / y; :}
+                    |   scalar_expr:x POW scalar_expr:y {: RESULT = Math.pow(x, y); :}
+                    |   vector_expr:x PROD vector_expr:y {: RESULT = x.e1*y.e1 + x.e2*y.e2; :}
+                    |   RO scalar_expr:e RC {: RESULT = e; :}
+                    |   SUB scalar_expr:e {: RESULT = -e; :} %prec UMINUS
+                    |   NUM:x {: RESULT = x; :}
+                    |   SVAR:v {: RESULT = parser.scalars.get(v); :};
+
+vector_expr       ::=   vector_expr:x SUM vector_expr:y {: RESULT = new parser.Vector(x.e1+y.e1, x.e2+y.e2); :}
+                    |   vector_expr:x SUB vector_expr:y {: RESULT = new parser.Vector(x.e1-y.e1, x.e2-y.e2); :}
+                    |   scalar_expr:x MUL vector_expr:y {: RESULT = new parser.Vector(x*y.e1, x*y.e2); :}
+                    |   vector_expr:y MUL scalar_expr:x {: RESULT = new parser.Vector(x*y.e1, x*y.e2); :}
+                    |   vector_expr:x DIV scalar_expr:y {: RESULT = new parser.Vector(x.e1/y, x.e2/y); :}
+                    |   scalar_expr:x DIV vector_expr:y {: RESULT = new parser.Vector(x/y.e1, x/y.e2); :}
+                    |   RO vector_expr:e RC {: RESULT = e; :}
+                    |   SO scalar_expr:x CM scalar_expr:y SC {: RESULT = new parser.Vector(x, y); :}
+                    |   VVAR:v {: RESULT = parser.vectors.get(v); :};
+
+scalar_assign     ::=   SVAR:v EQ scalar_expr:e {: 
+   parser.scalars.put(v, e); 
+   System.out.println("assignment: "+v+"->"+e);
+:};
+vector_assign     ::=   VVAR:v EQ vector_expr:e {: 
+   parser.vectors.put(v, e); 
+   System.out.println("assignment: "+v+"->["+e.e1+","+e.e2+"]");   
+:};
