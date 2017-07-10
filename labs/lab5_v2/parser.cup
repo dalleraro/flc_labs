@@ -1,0 +1,78 @@
+import java_cup.runtime.*;
+import java.util.HashMap;
+
+init with {:
+   symbol_table = new HashMap();
+:};
+
+parser code {:
+   public HashMap symbol_table;
+
+   public void syntax_error(Symbol current_symbol) {
+      StringBuffer m = new StringBuffer("Error");
+
+      if (current_symbol.left != -1) {                
+         m.append(" in line " + (current_symbol.left+1));   
+	      m.append(", column " + (current_symbol.right+1));
+      }
+      m.append(", symbol: " + (current_symbol));
+      m.append(" : Syntax Error");
+   
+  	System.err.println(m);
+   }
+:}
+
+terminal Double REAL;
+terminal Character SVAR, VVAR;
+terminal PLUS, MINUS, MUL, DIV, DOT, POW;
+terminal RO, RC, SO, SC, CM, S, QM, EQ;
+terminal UMINUS;
+
+non terminal Object session, expr_list, expr, scalar_expr_, vector_expr_;
+non terminal Object scalar_assign, vector_assign;
+non terminal Double scalar_expr, scalar;
+non terminal Double[] vector_expr, vector;
+
+precedence left PLUS, MINUS;
+precedence left DIV, MUL, DOT;
+precedence left POW;
+precedence left UMINUS;
+
+
+
+start with session;
+
+session        ::=    expr_list QM;
+expr_list      ::=    expr_list expr S | expr S;
+expr           ::=    scalar_expr_ | vector_expr_ | scalar_assign | vector_assign;
+scalar_expr_   ::=    scalar_expr:e  {: System.out.println("scalar expression: "+e); :};
+vector_expr_   ::=    vector_expr:e  {: System.out.println("vector expression: ["+e[0]+","+e[1]+"]"); :};
+
+scalar_expr    ::=    scalar_expr:e1 PLUS scalar_expr:e2 {: RESULT = e1 + e2; :}
+                |    scalar_expr:e1 MINUS scalar_expr:e2 {: RESULT = e1 - e2; :}
+                |    scalar_expr:e1 MUL scalar_expr:e2 {: RESULT = e1 * e2; :}
+                |    scalar_expr:e1 DIV scalar_expr:e2 {: RESULT = e1 / e2; :}
+                |    scalar_expr:e1 POW scalar_expr:e2 {: RESULT = Math.pow(e1, e2); :}
+                |    vector_expr:e1 DOT vector_expr:e2 {: RESULT = (e1[0]*e2[0]) + (e1[1] * e2[1]); :}
+                |    scalar:n {: RESULT = n; :}
+                |    RO scalar_expr:e RC {: RESULT = e; :}
+                |    MINUS scalar_expr:e {: RESULT = -e; :} %prec UMINUS;
+
+scalar         ::=    REAL:n {: RESULT = n; :}
+                |    SVAR:v {: RESULT = (Double)parser.symbol_table.get(v); :};
+                
+vector_expr    ::=    vector_expr:e1 PLUS vector_expr:e2 {: RESULT = new Double[2]; RESULT[0] = e1[0] + e2[0]; RESULT[1] = e1[1] + e2[1]; :}
+                |    vector_expr:e1 MINUS vector_expr:e2 {: RESULT = new Double[2]; RESULT[0] = e1[0] - e2[0]; RESULT[1] = e1[1] - e2[1]; :}
+                |    scalar_expr:se MUL vector_expr:ve {: RESULT = new Double[2]; RESULT[0] = se*ve[0]; RESULT[1] = se*ve[1]; :}
+                |    vector_expr:ve MUL scalar_expr:se {: RESULT = new Double[2]; RESULT[0] = ve[0]*se; RESULT[1] = ve[1]*se; :}
+                |    scalar_expr:se DIV vector_expr:ve {: RESULT = new Double[2]; RESULT[0] = se/ve[0]; RESULT[1] = se/ve[1]; :}
+                |    vector_expr:ve DIV scalar_expr:se {: RESULT = new Double[2]; RESULT[0] = ve[0]/se; RESULT[1] = ve[1]/se; :}
+                |    RO vector_expr:e RC {: RESULT = e; :}
+                |    vector:v {: RESULT = new Double[2]; RESULT[0] = v[0]; RESULT[1] = v[1]; :};
+
+vector         ::=    SO scalar:e1 CM scalar:e2 SC {: RESULT = new Double[2]; RESULT[0] = e1; RESULT[1] = e2; :}
+                |    VVAR:v {: RESULT = (Double[])parser.symbol_table.get(v); :};
+
+scalar_assign  ::=    SVAR:v EQ scalar_expr:e {: parser.symbol_table.put(v, e); System.out.println("assignment: " + e); :};
+
+vector_assign  ::=    VVAR:v EQ vector_expr:e {: parser.symbol_table.put(v, e); System.out.println("assignment: [" + e[0] + "," + e[1] + "]"); :};

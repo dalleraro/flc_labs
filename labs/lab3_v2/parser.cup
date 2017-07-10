@@ -1,0 +1,64 @@
+import java_cup.runtime.*;
+
+parser code {:
+   public void syntax_error(Symbol current_symbol) {
+      StringBuffer m = new StringBuffer("Error");
+
+      if (current_symbol.left != -1) {                
+         m.append(" in line " + (current_symbol.left+1));   
+	      m.append(", column " + (current_symbol.right+1));
+      }
+      m.append(", symbol: " + (current_symbol));
+      m.append(" : Syntax Error");
+   
+  	System.err.println(m);
+   }
+:}
+
+terminal Integer INT_N;
+terminal Double DOUBLE_N;
+terminal INT_TYPE, DOUBLE_TYPE, IF, WHILE, PRINT;
+terminal String ID;
+terminal RO, RC, SO, SC, CO, CC, CM, S;
+terminal PLUS, MINUS, DIV, MUL;
+terminal NOT, AND, OR, MAJ, MIN, EQ;
+terminal UMINUS;
+
+non terminal prog, instr_list, instr, decl, assign, cond, expr, while, if, print, var, var_dec_l, var_dec, operand, type, bop;
+
+precedence left PLUS, MINUS;
+precedence left MUL, DIV;
+precedence left MAJ, MIN, EQ;
+precedence left AND, OR, NOT;
+precedence left UMINUS;
+
+start with prog;
+
+prog        ::=   instr_list;
+instr_list  ::=   instr_list instr | instr;
+instr       ::=   decl S| assign S| while | if | print S;
+decl        ::=   type var_dec_l;
+var_dec_l   ::=   var_dec_l CM var_dec | var_dec;
+type        ::=   INT_TYPE | DOUBLE_TYPE;
+var_dec     ::=   ID | ID SO INT_N SC;
+var         ::=   var_dec | ID SO ID SC;
+assign      ::=   var EQ expr;
+expr        ::=   expr PLUS expr
+              |   expr MINUS expr
+              |   expr MUL expr
+              |   expr DIV expr
+              |   RO expr RC
+              |   MINUS expr  %prec UMINUS
+              |   operand;
+operand     ::=   var | INT_N | DOUBLE_N;
+while       ::=   WHILE RO cond RC CO instr_list CC
+              |   WHILE RO cond RC instr;
+if          ::=   IF RO cond RC CO instr_list CC
+              |   IF RO cond RC instr;
+print       ::=   PRINT var;
+cond        ::=   cond AND cond
+              |   cond OR cond
+              |   NOT cond
+              |   RO cond RC
+              |   expr bop expr;
+bop         ::=   MAJ | MIN | MAJ EQ | MIN EQ | EQ EQ;
