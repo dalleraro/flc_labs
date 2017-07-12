@@ -1,0 +1,224 @@
+import java_cup.runtime.*;
+import java.io.*;
+
+init with {:
+    // String buffer used to store output program
+    outputBuffer = new StringBuffer();
+:};
+
+parser code {:
+   public boolean isCorrect = true;
+
+   public int label = 0;
+   
+   public static String dumpOutput;
+
+   public boolean enableSem = true;
+   
+   public StringBuffer outputBuffer;
+   
+   public int genLabel(){
+        label++;
+        return label;
+   };
+
+   public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    public void syntax_error(Symbol cur_token){}
+    
+    public Symbol getToken() {
+        return ((Symbol)stack.elementAt(tos));
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos+position)).value);
+    }
+    
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+:}
+
+action code {:
+
+    private void disableSem(){
+        parser.enableSem = false;
+    }
+    
+    private boolean sem(){
+        return parser.enableSem;
+    }
+
+   private void pSemError(String message){
+        System.err.println("SEM ERROR: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+
+        parser.done_parsing();
+    }
+    
+    private void pSemWarning(String message){
+        System.err.println("SEM WARNING: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+    }
+
+    private void pSynError(String message){
+        System.err.println("SYN ERROR: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+        parser.done_parsing();
+    }
+    private void pSynWarning(String message){
+        System.err.println("SYN WARNING: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+        disableSem();
+    }
+    
+    private void dump(String s){
+        parser.outputBuffer.append(s);
+        System.out.print(s);
+    }
+
+    private void dumpln(String s){
+        parser.outputBuffer.append(s+"\n");
+        System.out.println(s);
+    }
+        
+:}
+
+terminal Integer INT_N;
+terminal Double DOUBLE_N;
+terminal INT_TYPE, DOUBLE_TYPE, IF, ELSE, WHILE, PRINT;
+terminal String ID;
+terminal RO, RC, SO, SC, CO, CC, CM, S;
+terminal PLUS, MINUS, DIV, MUL;
+terminal NOT, AND, OR, MAJ, MIN, EQ;
+terminal UMINUS;
+
+non terminal prog, decl_l, stmnt_l, decl, stmnt, assign, if_cond, while, if, print, else;
+non terminal String type, var_dec_l, var_dec, var, operand, expr, bop, cond, while_cond;
+non terminal Integer[] nt0_while;
+non terminal Integer nt0_if, nt1_if;
+
+precedence left PLUS, MINUS;
+precedence left MUL, DIV;
+precedence left MAJ, MIN, EQ;
+precedence left AND, OR, NOT;
+precedence left UMINUS;
+
+start with prog;
+
+prog        ::=   decl_l stmnt_l  {: 
+      dumpln("\tEND");
+      if(parser.isCorrect) System.out.println("Program correctly recognized"); 
+      else System.out.println("Parsing finished with warnings"); 
+      if(parser.dumpOutput!="stdout"){
+         try{
+            BufferedWriter out = new BufferedWriter(new FileWriter(parser.dumpOutput));
+            String outText = parser.outputBuffer.toString();
+            out.write(outText);
+            out.close();
+         } catch(IOException e){
+            e.printStackTrace();
+         }
+      }
+   :};
+decl_l      ::=   decl_l decl S | decl S;
+stmnt_l     ::=   stmnt_l stmnt | stmnt;
+stmnt       ::=   assign S| while | if | print S
+              |   assign error   {: pSynWarning("Missing ; before } :"); :}
+              |   print error    {: pSynWarning("Missing ; before } :"); :};
+decl        ::=   type var_dec_l
+              |   type error  {: pSynWarning("Error in declaration"); :}; 
+var_dec_l   ::=   var_dec_l CM {: RESULT = (String)parser.stack(-2); :} var_dec {: dumpln((String)parser.stack(-1)+" "+(String)parser.stack(0)); :}
+              |   var_dec {: dumpln((String)parser.stack(-1)+" "+(String)parser.stack(0)); :};
+type        ::=   INT_TYPE {: RESULT = new String("INT"); :} | DOUBLE_TYPE {: RESULT = new String("DOUBLE"); :};
+var_dec     ::=   ID:x {: RESULT = x; :}
+              |   ID:x SO INT_N:y SC {: RESULT = x+"["+y+"]"; :};
+var         ::=   var_dec:x {: RESULT = x; :}
+              | ID:x SO ID:y SC {: RESULT = new String(x + "["+ y + "]"); :};
+assign      ::=   var:x EQ expr:y {: dumpln("EVAL "+y); dumpln("ASS "+x); :}
+              |   var EQ error   {: pSynWarning("Error in assignment"); :};
+expr        ::=   expr:x PLUS expr:y {: RESULT = x+" "+y+" +"; :} 
+              |   expr:x MINUS expr:y {: RESULT = x+" "+y+" -"; :}
+              |   expr:x MUL expr:y {: RESULT = x+" "+y+" *"; :}
+              |   expr:x DIV expr:y {: RESULT = x+" "+y+" /"; :}
+              |   RO expr:x RC {: RESULT = x; :}
+              |   MINUS expr:x {: RESULT = "-"+x; :} %prec UMINUS
+              |   operand:x {: RESULT = x; :};
+operand     ::=   var:x {: RESULT = x; :}
+              |   INT_N:x {: RESULT = new String(""+x); :} 
+              |   DOUBLE_N:x {: RESULT = new String(""+x); :};
+while       ::=   WHILE while_cond nt0_while CO stmnt_l CC {: 
+         Integer[] l = (Integer[])parser.stack(-3);
+         dumpln("GOTO L" + l[0]);
+         dumpln("L"+l[1]+":");
+      :}
+              |   WHILE while_cond nt0_while stmnt {: 
+         Integer[] l = (Integer[])parser.stack(-1);
+         dumpln("GOTO L" + l[0]);
+         dumpln("L"+l[1]+":");
+      :};
+nt0_while   ::=   {: 
+         Integer[] l = new Integer[2];
+         l[0] = parser.genLabel();
+         l[1] = parser.genLabel();
+         dumpln("L"+l[0]+":");
+         dumpln("EVAL "+(String)parser.stack(0));
+         dumpln("GOTOF L"+l[1]);
+         RESULT = l;
+      :};
+
+while_cond  ::=   RO cond:x RC {: RESULT = x; :}
+              |   RO error RC {: pSynWarning("Error in ’while’ condition"); :}
+              |   error cond RC  {: pSynWarning("Error ’(’ expected in ’while’ instruction"); :}
+              |   RO cond error  {: pSynWarning("Error ’)’ expected in 'while’ instruction"); :};
+if          ::=   IF if_cond nt0_if CO stmnt_l {: RESULT = (Integer)parser.stack(-2); :} CC else
+              |   IF if_cond nt0_if stmnt else;
+else        ::=   ELSE nt1_if CO stmnt_l CC {:
+                     dumpln("L"+(Integer)parser.stack(-3)+":");
+                  :}
+              |   ELSE nt1_if stmnt {:
+                     dumpln("L"+(Integer)parser.stack(-1)+":");
+                  :}
+              |   {: 
+                     dumpln("L"+(Integer)parser.stack(-1)+":");
+                  :};
+nt0_if      ::=   {: Integer l = parser.genLabel();
+                     dumpln("EVAL "+(String)parser.stack(0));
+                     dumpln("GOTOF L"+l);
+                     RESULT = l;
+                  :};
+nt1_if      ::=   {: Integer l = parser.genLabel();
+                     dumpln("GOTO L"+l);
+                     dumpln("L"+(Integer)parser.stack(-2)+":");
+                     RESULT = l;
+                  :};
+if_cond     ::=   RO cond:x RC  {: RESULT = x; :}
+              |   RO error RC {: pSynWarning("Error in 'if' condition"); :}
+              |   error cond RC  {: pSynWarning("Error ’(’ expected in ’if’ instruction"); :}
+              |   RO cond error  {: pSynWarning("Error ’)’ expected in ’if’ instruction"); :};
+print       ::=   PRINT var:x {: dumpln("PRINT "+x); :}
+              |   PRINT error {: pSynWarning("Error in 'print' instruction"); :};
+cond        ::=   cond:x AND cond:y {: RESULT = new String(x+" "+y+" &"); :}
+              |   cond:x OR cond:y {: RESULT = new String(x+" "+y+" |"); :}
+              |   NOT cond:x {: RESULT = new String(x+" !"); :}
+              |   RO cond:x RC {: RESULT = x; :}
+              |   expr:x bop:op expr:y {: RESULT = new String(x+" "+y+" "+op); :};
+bop         ::=   MAJ {: RESULT = ">"; :} 
+              |   MIN {: RESULT = "<"; :}
+              |   MAJ EQ {: RESULT = ">="; :}
+              |   MIN EQ {: RESULT = "<="; :}
+              |   EQ EQ {: RESULT = "=="; :};

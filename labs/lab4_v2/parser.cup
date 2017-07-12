@@ -1,30 +1,57 @@
 import java_cup.runtime.*;
 
 parser code {:
-   public void syntax_error(Symbol current_symbol) {
-      StringBuffer m = new StringBuffer("Error");
+   public boolean isCorrect = true;
 
-      if (current_symbol.left != -1) {                
-         m.append(" in line " + (current_symbol.left+1));   
-	      m.append(", column " + (current_symbol.right+1));
-      }
-      m.append(", symbol: " + (current_symbol));
-      m.append(" : Syntax Error");
-   
-  	System.err.println(m);
-   }
+   public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    public void syntax_error(Symbol cur_token){}
+    
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+:}
+
+action code {:
+
+    private void pSynError(String message){
+        System.err.println("SYN ERROR: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+        parser.done_parsing();
+    }
+    private void pSynWarning(String message){
+        System.err.println("SYN WARNING: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+    }
+        
 :}
 
 terminal Integer INT_N;
 terminal Double DOUBLE_N;
-terminal INT_TYPE, DOUBLE_TYPE, IF, WHILE, PRINT;
+terminal INT_TYPE, DOUBLE_TYPE, IF, ELSE, WHILE, PRINT;
 terminal String ID;
 terminal RO, RC, SO, SC, CO, CC, CM, S;
 terminal PLUS, MINUS, DIV, MUL;
 terminal NOT, AND, OR, MAJ, MIN, EQ;
 terminal UMINUS;
 
-non terminal prog, instr_list, instr, decl, assign, cond, expr, while, if, print, var, var_dec_l, var_dec, operand, type, bop;
+non terminal prog, decl_l, stmnt_l, decl, stmnt, assign, if_cond, cond, expr, while, while_cond, if, print, var, var_dec_l, var_dec, operand, type, bop;
 
 precedence left PLUS, MINUS;
 precedence left MUL, DIV;
@@ -34,15 +61,20 @@ precedence left UMINUS;
 
 start with prog;
 
-prog        ::=   instr_list;
-instr_list  ::=   instr_list instr | instr;
-instr       ::=   decl S| assign S| while | if | print S;
-decl        ::=   type var_dec_l;
+prog        ::=   decl_l stmnt_l  {: if(parser.isCorrect) System.out.println("Program correctly recognized"); else System.out.println("Parsing finished with warnings"); :};
+decl_l      ::=   decl_l decl S | decl S;
+stmnt_l     ::=   stmnt_l stmnt | stmnt;
+stmnt       ::=   assign S| while | if | print S
+              |   assign error   {: pSynWarning("Missing ; before } :"); :}
+              |   print error    {: pSynWarning("Missing ; before } :"); :};
+decl        ::=   type var_dec_l
+              |   type error  {: pSynWarning("Error in declaration"); :}; 
 var_dec_l   ::=   var_dec_l CM var_dec | var_dec;
 type        ::=   INT_TYPE | DOUBLE_TYPE;
 var_dec     ::=   ID | ID SO INT_N SC;
 var         ::=   var_dec | ID SO ID SC;
-assign      ::=   var EQ expr;
+assign      ::=   var EQ expr
+              |   var EQ error   {: pSynWarning("Error in assignment"); :};
 expr        ::=   expr PLUS expr
               |   expr MINUS expr
               |   expr MUL expr
@@ -51,11 +83,22 @@ expr        ::=   expr PLUS expr
               |   MINUS expr  %prec UMINUS
               |   operand;
 operand     ::=   var | INT_N | DOUBLE_N;
-while       ::=   WHILE RO cond RC CO instr_list CC
-              |   WHILE RO cond RC instr;
-if          ::=   IF RO cond RC CO instr_list CC
-              |   IF RO cond RC instr;
-print       ::=   PRINT var;
+while       ::=   WHILE while_cond CO stmnt_l CC
+              |   WHILE while_cond stmnt;
+while_cond  ::=   RO cond RC
+              |   RO error RC {: pSynWarning("Error in ’while’ condition"); :}
+              |   error cond RC  {: pSynWarning("Error ’(’ expected in ’while’ instruction"); :}
+              |   RO cond error  {: pSynWarning("Error ’)’ expected in 'while’ instruction"); :};
+if          ::=   IF if_cond CO stmnt_l CC ELSE CO stmnt_l CC
+              |   IF if_cond stmnt ELSE CO stmnt_l CC
+              |   IF if_cond CO stmnt_l CC error   {: pSynWarning("Error ’else’ expected in ’if’ instruction"); :}
+              |   IF if_cond stmnt error  {: pSynWarning("Error ’else’ expected in ’if’ instruction"); :};
+if_cond     ::=   RO cond RC
+              |   RO error RC {: pSynWarning("Error in 'if' condition"); :}
+              |   error cond RC  {: pSynWarning("Error ’(’ expected in ’if’ instruction"); :}
+              |   RO cond error  {: pSynWarning("Error ’)’ expected in ’if’ instruction"); :};
+print       ::=   PRINT var
+              |   PRINT error {: pSynWarning("Error in 'print' instruction"); :};
 cond        ::=   cond AND cond
               |   cond OR cond
               |   NOT cond

@@ -5,7 +5,7 @@ scanner:
 	jflex scanner.jflex
 
 parser:
-	java java_cup.Main -parser parser parser.cup
+	java java_cup.MainDrawTree -parser parser parser.cup
 
 clean:
 	rm -fr parser.java scanner.java sym.java
