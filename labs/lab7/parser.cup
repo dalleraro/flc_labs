@@ -1,0 +1,144 @@
+import java_cup.runtime.*;
+import java.io.*;
+
+init with {:
+    // String buffer used to store output program
+    outputBuffer = new StringBuffer();
+:};
+
+parser code {:
+   public boolean isCorrect = true;
+
+   public int label = 0;
+   
+   public static String dumpOutput;
+
+   public boolean enableSem = true;
+   
+   public StringBuffer outputBuffer;
+   
+   public int genLabel(){
+        label++;
+        return label;
+   };
+
+   public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    public void syntax_error(Symbol cur_token){}
+    
+    public Symbol getToken() {
+        return ((Symbol)stack.elementAt(tos));
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos+position)).value);
+    }
+    
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+:}
+
+action code {:
+
+    private void disableSem(){
+        parser.enableSem = false;
+    }
+    
+    private boolean sem(){
+        return parser.enableSem;
+    }
+
+   private void pSemError(String message){
+        System.err.println("SEM ERROR: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+
+        parser.done_parsing();
+    }
+    
+    private void pSemWarning(String message){
+        System.err.println("SEM WARNING: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+    }
+
+    private void pSynError(String message){
+        System.err.println("SYN ERROR: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+        parser.done_parsing();
+    }
+    private void pSynWarning(String message){
+        System.err.println("SYN WARNING: line: "+parser.getLine()+" col: "+parser.getColumn()+": "+message);
+        parser.isCorrect = false;
+        disableSem();
+    }
+    
+    private void dump(String s){
+        parser.outputBuffer.append(s);
+        System.out.print(s);
+    }
+
+    private void dumpln(String s){
+        parser.outputBuffer.append(s+"\n");
+        System.out.println(s);
+    }
+        
+:}
+
+terminal Integer NUM;
+terminal INT, DOUBLE, FLOAT, CHAR;
+terminal String ID;
+terminal SO, SC, CM, S;
+terminal PTR;
+
+non terminal Prog, Decl;
+non terminal te_node T, TYPE, Vlist, V, Ptr, Array;
+
+
+Prog  ::=   
+        |   Prog Decl S    {:
+               if(parser.dumpOutput!="stdout"){
+                  try{
+                     BufferedWriter out = new BufferedWriter(new FileWriter(parser.dumpOutput));
+                     String outText = parser.outputBuffer.toString();
+                     out.write(outText);
+                     out.close();
+                  } catch(IOException e){
+                     e.printStackTrace();
+                  }
+               }
+            :}
+        |   Prog error S;
+        
+Decl  ::=   T Vlist;
+
+T     ::=   TYPE:t {: RESULT=t; :};
+
+TYPE  ::=   INT {: RESULT = te_node.te_make_base(BaseCode.INT); :}
+        |   DOUBLE {: RESULT = te_node.te_make_base(BaseCode.DOUBLE); :}
+        |   FLOAT {: RESULT = te_node.te_make_base(BaseCode.FLOAT); :}
+        |   CHAR {: RESULT = te_node.te_make_base(BaseCode.CHAR); :};
+
+Vlist ::=   V
+        |   Vlist CM {: RESULT = (te_node)parser.stack(-2); :} V;
+        
+V     ::=   Ptr ID:id Array:t {: dumpln("var "+id+" :"+t.toString()); :};
+
+Ptr   ::=      {: RESULT = (te_node)parser.stack(0); :}
+        |   Ptr:t PTR {: RESULT = te_node.te_make_pointer(t); :};
+        
+Array ::=      {: RESULT = (te_node)parser.stack(-1); :}
+        | Array:t SO NUM:n SC {: RESULT = te_node.te_make_array(n, t); :};

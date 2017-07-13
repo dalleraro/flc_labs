@@ -1,0 +1,103 @@
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.HashMap;
+
+init with {:
+    // String buffer used to store output program
+    symbol_table = new HashMap();
+:};
+
+parser code {:
+   public HashMap symbol_table;
+
+   public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos+position)).value);
+    }
+    
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+:}
+
+action code {:
+   class Attribute {
+      public String n;
+      public Integer v;
+
+      public Attribute(String n, Integer v){
+         this.n = n;
+         this.v = v;
+      }
+   }
+:}
+
+terminal RO, RC, CM, S, DOT, C, EQ, ARROW;
+terminal String ID, WORD;
+terminal Integer NUM, SCORE;
+
+non terminal prog, def_list, desc_list, def, desc;
+non terminal HashMap att_list; 
+non terminal Attribute att;
+non terminal Integer review_list, review;
+non terminal String sentence, token, type, nt0;
+
+start with prog;
+
+prog        ::=   def_list DOT desc_list ;
+
+def_list    ::=   def_list def
+              |   def ;
+def         ::=   RO att_list:ah RC ARROW ID:s {:
+                     parser.symbol_table.put(s, ah);
+                  :};
+att_list    ::=   att_list:ah CM att:a {:
+                     ah.put(a.n, a.v);
+                     RESULT = ah;
+                  :}
+              |   att:a {:
+                     HashMap attHash = new HashMap();
+                     attHash.put(a.n, a.v);
+                     RESULT = attHash;
+                  :};
+att         ::=   ID:n C NUM:v {: 
+                     RESULT = new Attribute(n, v);
+                  :};
+
+desc_list   ::=   desc_list desc 
+              |   ;
+desc        ::=   ID C {: RESULT = (String)parser.stack(-1); :} review_list:v EQ sentence:s S {:
+                     System.out.println(s+", "+v);
+                  :};
+review_list ::=   review_list:x CM nt0 review:y {: RESULT = x + y; :}
+              |   review:x {: RESULT = x; :};
+nt0         ::=   {: RESULT = (String)parser.stack(-2); :};
+review      ::=   SCORE:s ID:a {: 
+                     String type = (String)parser.stack(-2);
+                     HashMap attHash = (HashMap)parser.symbol_table.get(type);
+                     RESULT = s * (Integer)attHash.get(a); 
+                  :};
+sentence    ::=   sentence:s token:t {: RESULT = s+" "+t; :} 
+              |   token:t {: RESULT = t; :};
+token       ::=   ID:s {: RESULT = s; :}
+              |   WORD:s {: RESULT = s; :}
+              |   NUM:n {: RESULT = n.toString(); :};
+
