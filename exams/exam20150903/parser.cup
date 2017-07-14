@@ -1,0 +1,186 @@
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.HashMap;
+
+init with {:
+    // String buffer used to store output program
+    symbol_table = new HashMap();
+:};
+
+parser code {:
+   public HashMap symbol_table;
+
+   public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos+position)).value);
+    }
+    
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+:}
+
+action code {:
+   public class Speed{
+      public String n;
+      public Integer v;
+
+      public Speed(String n, Integer v){
+         this.n = n;
+         this.v = v;
+      }
+   }
+
+   public class MinMax{
+      public Integer min;
+      public Integer max;
+
+      public MinMax(Integer min, Integer max){
+         this.min = min;
+         this.max = max;
+      }
+   }
+
+   public class Car{
+      public String n;
+      public Double t;
+
+      public Car(String n, Double t){
+         this.n = n;
+         this.t = t;
+      }
+   }
+
+   public void out(String str){
+      System.out.println(str);
+   }
+:}
+
+terminal S, C, CM, RO, RC, CO, CC, EQ, ARROW, PIPE, SEP, TOKEN1, TOKEN2, TOKEN3, M, MS, PRINT;
+terminal String NAME, PART;
+terminal Integer NUM;
+
+non terminal prog, header, t1, cars, car, race, print_l, print;
+non terminal HashMap speeds, nt0, nt1, nt2;
+non terminal Speed speed;
+non terminal MinMax sections;
+non terminal Integer section;
+non terminal Double stats, stat, parts, part;
+non terminal Car performances, performance;
+
+
+start with prog;
+
+prog        ::=   header SEP cars SEP race;
+
+// Header section
+
+header         ::=   t1 TOKEN2 S t1 TOKEN3 S t1
+                 |   t1 TOKEN3 S t1 TOKEN2 S t1;
+t1             ::=   t1 TOKEN1 S
+                 |   ;
+
+// Cars section
+
+cars           ::=   cars car car
+                 |   car car;
+car            ::=   NAME:n CO speeds:hm CC {:
+                        parser.symbol_table.put(n, hm);
+                     :};
+speeds         ::=   speeds:hm CM speed:s {:
+                        hm.put(s.n, s.v);
+                        RESULT = hm;
+                     :}
+                 |   speeds error speed
+                 |   speed:s {:
+                        HashMap hm = new HashMap();
+                        hm.put(s.n, s.v);
+                        RESULT = hm;
+                     :};
+speed          ::=   NAME:n EQ NUM:v MS {:
+                        RESULT = new Speed(n, v);
+                     :};
+
+// race section
+
+race           ::=   print_l performances:x {:
+                        out("WINNER: "+x.n+" "+x.t+" s");
+                     :};
+print_l        ::=   print_l print
+                 |   ;
+print          ::=   PRINT RO NAME RC RO nt0 sections:mm RC S {:
+                        out("MIN: "+mm.min+" MAX: "+mm.max);
+                     :};
+nt0            ::=   {: 
+                        RESULT = (HashMap)parser.symbol_table.get((String)parser.stack(-2));
+                     :};
+sections       ::=   sections:mm CM nt1 section:s {:
+                        mm.min = Math.min(mm.min, s);
+                        mm.max = Math.max(mm.max, s);
+                        RESULT = mm;
+                     :}
+                 |   section:s {:
+                        RESULT = new MinMax(s, s);
+                     :};
+nt1            ::=   {:
+                        RESULT = (HashMap)parser.stack(-2);
+                     :};
+section        ::=   NAME:n {:
+                        RESULT = (Integer)((HashMap)parser.stack(-1)).get(n);
+                     :};
+performances   ::=   performances:x performance:y {:
+                        if(x.t > y.t)
+                           RESULT = y;
+                        else 
+                           RESULT = x;
+                     :}
+                 |   performance:x {:
+                        RESULT = x;
+                     :};
+performance    ::=   NAME:n ARROW nt2 parts:p S {:
+                        out("TOTAL: "+p+" s");
+                        RESULT = new Car(n, p);
+                     :};
+nt2            ::=   {: 
+                        String name = (String)parser.stack(-1);
+                        out(name);
+                        RESULT = (HashMap)parser.symbol_table.get(name);
+                     :};
+parts          ::=   parts:x PIPE nt1 part:y {:
+                        RESULT = x + y;
+                     :}
+                 |   part:x {:
+                        RESULT = x;
+                     :};
+part           ::=   PART:p C nt1 stats:s {:
+                        out(p+": "+s+" s");
+                        RESULT = s;
+                     :};
+stats          ::=   stats:x CM nt1 stat:y {:
+                        RESULT = x + y;
+                     :}
+                 |   stat:x {:
+                        RESULT = x;
+                     :};
+stat           ::=   NAME:n NUM:d M {:
+                        Integer speed = (Integer)((HashMap)parser.stack(-3)).get(n);
+                        RESULT = new Double(d) / new Double(speed);
+                     :};

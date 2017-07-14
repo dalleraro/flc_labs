@@ -1,0 +1,83 @@
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.HashMap;
+
+init with {:
+    // String buffer used to store output program
+    symbol_table = new HashMap();
+    System.out.println("OUTPUT:");
+:};
+
+parser code {:
+   public HashMap symbol_table;
+
+   public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos+position)).value);
+    }
+    
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+:}
+
+action code {:
+   public void out(String str){
+      System.out.println(str);
+   }
+:}
+
+terminal CM, DOT, S, C, HEADER1, HEADER2, DATEH, TIMEH, KBS, DATE, HOUR;
+terminal Integer NUM;
+terminal String NAME, IP;
+
+non terminal prog, firstsec, secondsec, desc_list, desc, file_list, file, download_list, date, time, download, nt0;
+non terminal Integer song_list, song;
+
+start with prog;
+
+prog           ::=   firstsec secondsec;
+firstsec       ::=   HEADER1 desc_list;
+desc_list      ::=   desc_list desc
+                 |   desc;
+desc           ::=   NUM KBS C {: RESULT = (Integer)parser.stack(-2); :} file_list S;
+file_list      ::=   file_list CM {: RESULT = (Integer)parser.stack(-2); :} file
+                 |   file;
+file           ::=   NAME:n NUM:v {:
+                        Integer rate = (Integer)parser.stack(-2);
+                        parser.symbol_table.put(n, v*rate);
+                     :};
+secondsec      ::=   HEADER2 date time download_list
+                 |   HEADER2 time date download_list;
+date           ::=   DATEH C DATE;
+time           ::=   TIMEH C HOUR;
+download_list  ::=   
+                 |   download_list download;
+download       ::=   IP:x nt0 C song_list:t S {: out("TOTALE: "+t); :};
+nt0            ::=   {: out((String)parser.stack(0)); :};
+song_list      ::=   song_list:x CM song:y {: RESULT = x + y; :}
+                 |   song:x {: RESULT = x; :};
+song           ::=   NAME:n {:
+                        Integer size = (Integer)parser.symbol_table.get(n);
+                        out(n+" "+size);
+                        RESULT = size;
+
+                     :};
