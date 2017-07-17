@@ -1,0 +1,141 @@
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.HashMap;
+
+init with {:
+    // String buffer used to store output program
+    symbol_table = new HashMap();
+:};
+
+parser code {:
+   public HashMap symbol_table;
+
+   public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos+position)).value);
+    }
+    
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+:}
+
+action code {:
+      
+   public void out(String str){
+      System.out.println(str);
+   }
+:}
+
+terminal CM, DOT, S, C, SEP, RO, RC, CO, CC;
+terminal HWORD, IF, ELSE, PRINT;
+terminal PLUS, MINUS, MUL, DIV, MAJ, MIN, EQ;
+terminal String ID, TYPE; 
+terminal Integer INT;
+terminal Double FLOAT;
+terminal UMINUS;
+
+non terminal prog;
+non terminal header, hword;
+non terminal cinstrs, decl_l, decl, instr_l, instr;
+non terminal vard_l, vard;
+non terminal if, else, if_cond, if_instr_l, if_instr;
+non terminal ass, print, expr, var, equiv;
+
+precedence left PLUS, MINUS;
+precedence left MUL, DIV;
+precedence left MAJ, MIN, equiv;
+precedence left UMINUS;
+
+start with prog;
+
+prog ::= header SEP cinstrs;
+
+// Header:
+
+header      ::= header hword hword
+              | hword hword hword
+              | error {:
+                  out("Error: Syntax error in Header");
+               :};
+hword       ::= HWORD S;
+
+// C instructions:
+
+cinstrs     ::= decl_l instr_l;
+
+// Declarations
+
+decl_l      ::= decl_l decl
+              | ;
+decl        ::= TYPE vard_l S ;
+vard_l      ::= vard_l CM {: RESULT = (String)parser.stack(-2); :} vard
+              | vard ;
+vard        ::= ID:v EQ INT:n {:
+                  if(!((String)parser.stack(-3)).equals("int"))
+                     out("TYPE ERROR!");
+                  else
+                     parser.symbol_table.put(v, n);
+               :}
+              | ID:v EQ FLOAT:n {:
+                  if(!((String)parser.stack(-3)).equals("float"))
+                     out("TYPE ERROR!");
+                  else
+                     parser.symbol_table.put(v, n);
+               :}
+              | ID ;
+
+// Instructions
+
+instr_l     ::= instr_l instr
+              | ;
+instr       ::= if | ass | print;
+
+if          ::= IF RO if_cond RC CO if_instr_l CC else
+              | IF RO if_cond RC if_instr else ;
+if_instr_l  ::= if_instr_l if_instr
+              | if_instr;
+else        ::= ELSE CO if_instr_l CC
+              | ELSE if_instr 
+              | ;
+if_instr    ::= ass | print ;
+if_cond     ::= expr MAJ expr 
+              | expr MIN expr
+              | expr equiv expr ;
+
+equiv       ::= EQ EQ ;
+
+ass         ::= ID EQ expr S ;
+
+print       ::= PRINT RO ID RC S ;
+
+expr        ::= expr PLUS expr
+              | expr MINUS expr
+              | expr MUL expr
+              | expr DIV expr
+              | RO expr RC
+              | MINUS expr %prec UMINUS
+              | var;
+
+var         ::= ID
+              | INT
+              | FLOAT ;
+

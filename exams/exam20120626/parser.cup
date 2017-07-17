@@ -1,0 +1,128 @@
+import java_cup.runtime.*;
+import java.io.*;
+import java.util.HashMap;
+
+init with {:
+    // String buffer used to store output program
+    symbol_table = new HashMap();
+:};
+
+parser code {:
+   public HashMap symbol_table;
+
+   public void report_error(String message, Object info) {
+        System.err.print("ERROR: Syntax error");
+        if (info instanceof Symbol)
+            if (((Symbol)info).left != -1){
+                int line = (((Symbol)info).left)+1;
+                int column = (((Symbol)info).right)+1;
+                System.err.print(" (linea "+line+", colonna "+column+"): ");
+            } else System.err.print(": ");
+        else System.err.print(": ");
+    }
+    
+    public Object stack(int position) {
+        return (((Symbol)stack.elementAt(tos+position)).value);
+    }
+    
+    public int getLine() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).left+1;
+        }else return -1;
+    }
+    // Return the column number of actual symbol
+    public int getColumn() {
+        if (((Symbol)stack.elementAt(tos)).left != -1){
+            return ((Symbol)stack.elementAt(tos)).right+1;
+        }else return -1;
+    }
+:}
+
+action code {:
+   public class Bid{
+      String usr;
+      Double adv;
+
+      public Bid(String usr, Double adv){
+         this.usr = usr;
+         this.adv = adv;
+      }
+   }
+
+   public void out(String str){
+      System.out.println(str);
+   }
+:}
+
+terminal S, C, CM, DOT, ARROW;
+terminal SEP, HOUR, CODE;
+terminal STRSTR;
+terminal String UCODE;
+terminal Double FNUM;
+terminal AUCT, MIN, EURO, PRODN;
+terminal Integer NUM;
+
+non terminal prog, header, hl, he;
+non terminal currencies, currency, user_l, user;
+non terminal auctions, auction, advances, advance;
+non terminal Object[] nt0;
+
+start with prog;
+
+prog           ::= header SEP currencies SEP auctions;
+
+// Header section:
+
+header         ::= hl CODE he CODE he 
+                 | he CODE hl CODE he
+                 | he CODE he CODE hl ;
+hl             ::= hl HOUR | HOUR ;
+he             ::= he HOUR | ;
+
+
+// Currencies section:
+
+currencies     ::= currencies currency
+                 | currency currency currency ;
+currency       ::= FNUM STRSTR C {: RESULT = (Double)parser.stack(-2); :} user_l S ;
+user_l         ::= user_l CM {: RESULT = (Double)parser.stack(-2); :} user
+                 | user
+                 | ;
+user           ::= UCODE:uc FNUM:n {:
+                     Double rate = (Double)parser.stack(-2);
+                     parser.symbol_table.put(uc, rate * n);
+                  :};
+
+
+// Auctions section:
+
+auctions       ::= auctions auction auction 
+                 | auction auction
+                 | ;
+auction        ::= AUCT NUM C PRODN C NUM MIN ARROW nt0 advances S  {:
+                     Object[] data = (Object[])parser.stack(-2);
+                     out("Winner is "+((Bid)data[1]).usr+" price "+((Bid)data[1]).adv+" euro");
+                   :};
+nt0            ::= {: 
+                     out("Auction "+(Integer)parser.stack(-6)+":");
+                     RESULT = new Object[2];
+                     RESULT[0] = (Integer)parser.stack(-2); 
+                     RESULT[1] = new Bid("", 0.0);
+                   :};
+advances       ::= advances CM {: RESULT = (Object[])parser.stack(-2); :} advance 
+                 | advance ;
+advance        ::= UCODE:uc C NUM:t C FNUM:v EURO {:
+                     Double cap = (Double)parser.symbol_table.get(uc);
+                     Object[] data = (Object[])parser.stack(-6);
+
+                     if(v < ((Bid)data[1]).adv)
+                        out(uc+": Error, advance less then current auction value");
+                     else if(t > (Integer)data[0])
+                        out(uc+": Error, advance out of time");
+                     else if(v > cap)
+                        out(uc+": Error, available only "+cap+" euro");
+                     else {
+                        out(uc+": New auction price "+v+" euro");
+                        data[1] = new Bid(uc, v);
+                     }
+                  :};
