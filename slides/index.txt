@@ -1,0 +1,6 @@
+1 -> Regular expression and the scanner JFlex
+2 -> Grammar and introduction of Cup
+3 -> Ambiguous grammars, Lists, Handling syntax errors
+4 -> Semantic: Synthesized attributes
+5 -> Semantic: Inherited attributes
+6 -> Type-checking
