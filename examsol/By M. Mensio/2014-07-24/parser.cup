@@ -1,0 +1,229 @@
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {:
+	// code to run at the beginning
+	// NOTE: is better to do table in action code, no need to use parser.table etc
+:};
+
+parser code {:
+
+	public boolean generateExceptions = true;
+	
+	public void report_error(String message, Object info) {
+		StringBuffer m = new StringBuffer(message);
+		if (info instanceof Symbol) {
+			if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+				if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+					int line = (((Symbol)info).left) + 1;
+					int column = (((Symbol)info).right) + 1;
+					m.append(" (line " + line + " column " + column + ")");
+				}
+			}
+			System.err.println(m);
+		}
+	}
+	
+	public Object stack(int position) throws Exception {
+		Object result;
+		if(position > 0) {
+			String msg = "Cannot read stack at positive position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+				//Report_err
+			} else {
+				System.err.println("***" + msg + "***");
+				return null;
+			}
+		}
+		result = ((Symbol)stack.elementAt(tos + position)).value;
+		if(result == null) {
+			String msg = "You read null while accessing stack at position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+			} else {
+				System.err.println("***" + msg + "***");
+			}
+			
+		}
+		return result;
+	}
+:};
+
+
+action code {:
+	
+	public Map<String, Double> table = new HashMap<>();
+
+	public class Point {
+		public double x, y;
+
+		public Point(Double x, Double y) {
+			this.x = x;
+			this.y = y;
+		}
+
+		public double squaredDistanceFrom(Point p) {
+			return (x - p.x)*(x - p.x) + (y - p.y)*(y - p.y);
+		}
+	}
+
+	public class DistanceHelper {
+		// this class helps the calculation of distances
+		// because of the strange definition of distance between multiple points
+		// distance(p1, p2, p3) = sqrt(distance(p1, p2)^2 + distance(p2, p3)^2)
+		public Point last_point;
+		public double accumulator;
+
+		public DistanceHelper() {
+			accumulator = 0;
+			last_point = null;
+		}
+
+		public void addPoint(Point p) {
+			if(last_point != null) {
+				accumulator += last_point.squaredDistanceFrom(p);
+			}
+			last_point = p;
+		}
+
+		public double getDistance() {
+			return Math.sqrt(accumulator);
+		}
+	}
+	
+:}
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+terminal SEP, S, C, CM, EQ, PLUS, STAR, RO, RC, SO, SC;
+terminal DISTANCE, VALUE, IN, WRITE;
+terminal TOKEN1, TOKEN2, EMAIL;
+terminal String ID, QUOTED_STR;
+terminal Double REAL;
+
+non terminal prog;
+non terminal header, token1_list_e, token1, token2, email;
+non terminal program, instruction;
+non terminal assignment, value_func;
+non terminal Double distance_func;
+non terminal DistanceHelper point_list;
+non terminal Point point;
+non terminal interval_list;
+non terminal interval;
+non terminal Double expr;
+
+non terminal nt_2;
+
+precedence left PLUS;
+precedence left STAR;
+
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog ::= header SEP program {:
+		System.out.println("Correct");
+	:}
+;
+
+header ::= token1_list_e token2 token1_list_e email token1_list_e
+	| token1_list_e email token1_list_e token2 token1_list_e
+;
+
+token1_list_e ::= token1_list_e token1
+	|
+;
+
+token1 ::= TOKEN1 S
+;
+
+token2 ::= TOKEN2 S
+;
+
+email ::= EMAIL S
+;
+
+// program
+
+program ::= program instruction
+	|
+;
+
+instruction ::= assignment S
+	| distance_func S
+	| value_func S
+;
+
+assignment ::= ID:a EQ expr:b {:
+		table.put(a, b);
+	:}
+;
+
+distance_func ::= DISTANCE RO point_list:a RC {:
+		RESULT = a.getDistance();
+	:}
+;
+
+point_list ::= point_list:a CM point:b {:
+		RESULT = a;
+		RESULT.addPoint(b);
+	:}
+	| point:a {:
+		RESULT = new DistanceHelper();
+		RESULT.addPoint(a);
+	:}
+;
+
+point ::= SO expr:a CM expr:b SC {:
+		RESULT = new Point(a, b);
+	:}
+;
+
+value_func ::= VALUE expr interval_list
+;
+
+interval_list ::= interval_list CM nt_2 interval
+	| interval
+;
+
+interval ::= IN SO expr:a C expr:b SC WRITE QUOTED_STR:c {:
+		double value = (Double)parser.stack(-8);
+		if(value >= a && value <= b) {
+			System.out.println(c);
+		}
+	:}
+;
+
+expr ::= expr:a PLUS expr:b {:
+		RESULT = a + b;
+	:}
+	| expr:a STAR expr:b {:
+		RESULT = a * b;
+	:}
+	| RO expr:a RC {:
+		RESULT = a;
+	:}
+	| REAL:a {:
+		RESULT = a;
+	:}
+	| ID:a {:
+		RESULT = table.get(a);
+	:}
+	| distance_func:a {:
+		RESULT = a;
+	:}
+;
+
+nt_2 ::= {:
+		RESULT = parser.stack(-2);
+	:}
+;

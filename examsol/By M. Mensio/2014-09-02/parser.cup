@@ -1,0 +1,285 @@
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {:
+	// code to run at the beginning
+	// NOTE: is better to do table in action code, no need to use parser.table etc
+:};
+
+parser code {:
+
+	public boolean generateExceptions = true;
+	
+	public void report_error(String message, Object info) {
+		StringBuffer m = new StringBuffer(message);
+		if (info instanceof Symbol) {
+			if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+				if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+					int line = (((Symbol)info).left) + 1;
+					int column = (((Symbol)info).right) + 1;
+					m.append(" (line " + line + " column " + column + ")");
+				}
+			}
+			System.err.println(m);
+		}
+	}
+	
+	public Object stack(int position) throws Exception {
+		Object result;
+		if(position > 0) {
+			String msg = "Cannot read stack at positive position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+				//Report_err
+			} else {
+				System.err.println("***" + msg + "***");
+				return null;
+			}
+		}
+		result = ((Symbol)stack.elementAt(tos + position)).value;
+		if(result == null) {
+			String msg = "You read null while accessing stack at position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+			} else {
+				System.err.println("***" + msg + "***");
+			}
+			
+		}
+		return result;
+	}
+:};
+
+
+action code {:
+	
+	public HashMap<String, Point> table = new HashMap<>();
+
+	public class Point {
+		public double x, y, z;
+
+		public Point(Double x, Double y, Double z) {
+			this.x = x;
+			this.y = y;
+			this.z = z;
+		}
+	}
+
+	public class Stat {
+		public double min, max, total;
+		public int count;
+
+		public Stat() {
+			min = Double.MAX_VALUE;
+			max = Double.MIN_VALUE;
+			total = 0;
+			count = 0;
+		}
+
+		public void collect(Double value) {
+			count++;
+			total += value;
+			min = Math.min(min, value);
+			max = Math.max(max, value);
+		}
+	}
+	
+:}
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+terminal SEP, DOT, CM, S, C, EQ, LESS, MORE, SO, SC, RO, RC;
+terminal WHEN, IS, PRINT, AND, OR, NOT, Z_STATS;
+terminal HOUR, CODE;
+terminal Boolean CONDITION;
+terminal String ATTR_NAME, POINT_NAME, QUOTED_STR;
+terminal Double REAL;
+
+non terminal prog;
+non terminal header, hour_list_e, hour, code_;
+non terminal program, command_list;
+non terminal command, point_def_cmd, when_cmd, z_stats_cmd;
+non terminal Point point_attr_list_e, point_attr_list;
+non terminal Point point_attr;
+non terminal Boolean bool_expr;
+non terminal Double number, point_coordinate;
+non terminal condition_list;
+non terminal condition;
+non terminal print_cmd_list;
+non terminal print_cmd;
+non terminal Stat point_list;
+
+non terminal nt_1;
+non terminal Boolean nt_enabler;
+
+precedence left OR;
+precedence left AND;
+precedence left NOT;
+
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog ::= header SEP program {:
+		System.out.println("Correct");
+	:}
+;
+
+// header
+
+header ::= hour_list_e code_ hour_list_e code_ hour_list_e
+;
+
+hour_list_e ::= hour_list_e hour
+	|
+;
+
+hour ::= HOUR S
+;
+
+code_ ::= CODE S
+;
+
+// program
+
+program ::= command_list
+	|
+;
+
+command_list ::= command_list command command
+	| command
+;
+
+command ::= point_def_cmd
+	| when_cmd
+	| z_stats_cmd
+;
+
+point_def_cmd ::= POINT_NAME:a EQ SO point_attr_list_e:b SC S {:
+		table.put(a, b);
+	:}
+;
+
+point_attr_list_e ::= point_attr_list:a {:
+		RESULT = a;
+	:}
+	| {:
+		RESULT = new Point(0., 0., 0.);
+	:}
+;
+
+point_attr_list ::= point_attr_list:a CM point_attr:b {:
+		RESULT = a;
+		if(b.x != 0) a.x = b.x;
+		if(b.y != 0) a.y = b.y;
+		if(b.z != 0) a.z = b.z;
+	:}
+	| point_attr:a {:
+		RESULT = a;
+	:}
+;
+
+point_attr ::= ATTR_NAME:a C REAL:b {:
+		RESULT = new Point(0., 0., 0.);
+		if(a.equals("x")) {
+			RESULT.x = b;
+		} else if(a.equals("y")) {
+			RESULT.y = b;
+		} else if(a.equals("z")) {
+			RESULT.z = b;
+		}
+	:}
+;
+
+when_cmd ::= WHEN bool_expr condition_list S
+;
+
+bool_expr ::= number:a LESS number:b {:
+		RESULT = a < b;
+	:}
+	| number:a MORE number:b {:
+		RESULT = a > b;
+	:}
+	| bool_expr:a AND bool_expr:b {:
+		RESULT = a && b;
+	:}
+	| bool_expr:a OR bool_expr:b {:
+		RESULT = a || b;
+	:}
+	| NOT bool_expr:a {:
+		RESULT = !a;
+	:}
+;
+
+number ::= REAL:a {:
+		RESULT = a;
+	:}
+	| point_coordinate:a {:
+		RESULT = a;
+	:}
+;
+
+point_coordinate ::= POINT_NAME:a DOT ATTR_NAME:b {:
+		Point p = table.get(a);
+		if(b.equals("x")) {
+			RESULT = p.x;
+		} else if(b.equals("y")) {
+			RESULT = p.y;
+		} else if(b.equals("z")) {
+			RESULT = p.z;
+		}
+	:}
+;
+
+condition_list ::= condition_list nt_1 condition
+	| condition
+;
+
+condition ::= IS CONDITION nt_enabler print_cmd_list
+;
+
+nt_enabler ::= {:
+		RESULT = (Boolean)parser.stack(-2) == (Boolean)parser.stack(0);
+	:}
+;
+
+print_cmd_list ::= print_cmd_list nt_1 print_cmd
+	| print_cmd
+;
+
+print_cmd ::= PRINT QUOTED_STR:a S {:
+		if((Boolean)parser.stack(-3)) {
+			System.out.println(a);
+		}
+	:}
+;
+
+z_stats_cmd ::= Z_STATS RO point_list:a RC S {:
+		System.out.println("MIN:" + a.min + " MAX:" + a.max + " AVG:" + a.total / a.count);
+	:}
+;
+
+point_list ::= point_list:a CM POINT_NAME:b {:
+		RESULT = a;
+		Point p = table.get(b);
+		RESULT.collect(p.z);
+	:}
+	| POINT_NAME:a {:
+		RESULT = new Stat();
+		Point p = table.get(a);
+		RESULT.collect(p.z);
+	:}
+;
+
+nt_1 ::= {:
+		RESULT = parser.stack(-1);
+	:}
+;

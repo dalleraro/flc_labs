@@ -1,0 +1,230 @@
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {:
+	// code to run at the beginning
+	// NOTE: is better to do table in action code, no need to use parser.table etc
+:};
+
+parser code {:
+
+	public boolean generateExceptions = true;
+	
+	public void report_error(String message, Object info) {
+		StringBuffer m = new StringBuffer(message);
+		if (info instanceof Symbol) {
+			if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+				if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+					int line = (((Symbol)info).left) + 1;
+					int column = (((Symbol)info).right) + 1;
+					m.append(" (line " + line + " column " + column + ")");
+				}
+			}
+			System.err.println(m);
+		}
+	}
+	
+	public Object stack(int position) throws Exception {
+		Object result;
+		if(position > 0) {
+			String msg = "Cannot read stack at positive position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+				//Report_err
+			} else {
+				System.err.println("***" + msg + "***");
+				return null;
+			}
+		}
+		result = ((Symbol)stack.elementAt(tos + position)).value;
+		if(result == null) {
+			String msg = "You read null while accessing stack at position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+			} else {
+				System.err.println("***" + msg + "***");
+			}
+			
+		}
+		return result;
+	}
+:};
+
+
+action code {:
+	
+	public Map<String, Map<String, Integer>> table = new HashMap<>();
+
+	public class Property {
+		public String key;
+		public int value;
+
+		public Property(String key, Integer value) {
+			this.key = key;
+			this.value = value;
+		}
+	}
+	
+:}
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+terminal SEP;
+terminal C, CM, S, PLUS, MINUS, STAR, DIV, RO, RC, SOSO, SCSC, ARROW;
+terminal CODICE, DATA;
+terminal String NOME, ID_OGG;
+terminal Integer UINT;
+
+non terminal prog;
+non terminal header, codice_list_e, data_list_e, header_list_e, codice, data;
+non terminal obj_decl_list, obj_decl;
+non terminal Map attr_list_e, attr_list;
+non terminal Property attr;
+non terminal operation_list_e, operation;
+non terminal Integer obj_attr;
+non terminal Integer equation_list;
+non terminal Integer equation;
+non terminal Integer expression;
+
+non terminal nt_2;
+
+precedence left PLUS, MINUS;
+precedence left STAR, DIV;
+
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog ::= header SEP obj_decl_list SEP operation_list_e {:
+		System.out.println("Correct");
+	:}
+;
+
+// header
+
+header ::= codice codice_list_e data header_list_e
+	| data data_list_e codice header_list_e
+;
+
+codice_list_e ::= codice_list_e codice
+	|
+;
+
+data_list_e ::= data_list_e data
+	|
+;
+
+header_list_e ::= header_list_e codice
+	| header_list_e data
+	|
+;
+
+codice ::= CODICE
+;
+
+data ::= DATA
+;
+
+// objects
+
+obj_decl_list ::= obj_decl_list obj_decl obj_decl
+	| obj_decl obj_decl
+;
+
+obj_decl ::= NOME:a C ID_OGG C SOSO attr_list_e:b SCSC {:
+		table.put(a, b);
+	:}
+	| NOME:a C C SOSO attr_list_e:b SCSC {:
+		table.put(a, b);
+	:}
+;
+
+attr_list_e ::= attr_list:a {:
+		RESULT = a;
+	:}
+	| {:
+		RESULT = new HashMap<String, Integer>();
+	:}
+;
+
+attr_list ::= attr_list:a CM attr:b {:
+		RESULT = a;
+		RESULT.put(b.key, b.value);
+	:}
+	| attr:a {:
+		RESULT = new HashMap<String, Integer>();
+		RESULT.put(a.key, a.value);
+	:}
+;
+
+attr ::= NOME:a C UINT:b {:
+		RESULT = new Property(a, b);
+	:}
+;
+
+// operations
+
+operation_list_e ::= operation_list_e operation operation
+	|
+;
+
+operation ::= obj_attr C equation_list:a S {:
+		System.out.println("MINIMO: " + a);
+	:}
+;
+
+obj_attr ::= NOME:a ARROW NOME:b {:
+		RESULT = table.get(a).get(b);
+	:}
+;
+
+equation_list ::= equation_list:a nt_2 CM equation:b {:
+		RESULT = Math.min(a, b);
+	:}
+	| equation:a {:
+		RESULT = a;
+	:}
+;
+
+equation ::= expression:a {:
+		int value = (Integer)parser.stack(-2);
+		RESULT = a * value;
+		System.out.println(RESULT);
+	:}
+;
+
+expression ::= expression:a PLUS expression:b {:
+		RESULT = a + b;
+	:}
+	| expression:a MINUS expression:b {:
+		RESULT = a - b;
+	:}
+	| expression:a STAR expression:b {:
+		RESULT = a * b;
+	:}
+	| expression:a DIV expression:b {:
+		RESULT = a / b;
+	:}
+	| RO expression:a RC {:
+		RESULT = a;
+	:}
+	| UINT:a {:
+		RESULT = a;
+	:}
+	| obj_attr:a {:
+		RESULT = a;
+	:}
+;
+
+nt_2 ::= {:
+		RESULT = parser.stack(-2);
+	:}
+;

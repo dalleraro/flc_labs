@@ -39,7 +39,16 @@ parser code {:
 :}
 
 action code {:
-      
+   public class Var{
+      public String type;
+      public Object val;
+
+      public Var(String type, Object val){
+         this.type = type;
+         this.val = val;
+      }
+   }
+
    public void out(String str){
       System.out.println(str);
    }
@@ -93,15 +102,17 @@ vard        ::= ID:v EQ INT:n {:
                   if(!((String)parser.stack(-3)).equals("int"))
                      out("TYPE ERROR!");
                   else
-                     parser.symbol_table.put(v, n);
+                     parser.symbol_table.put(v, new Var("int", n));
                :}
               | ID:v EQ FLOAT:n {:
                   if(!((String)parser.stack(-3)).equals("float"))
                      out("TYPE ERROR!");
                   else
-                     parser.symbol_table.put(v, n);
+                     parser.symbol_table.put(v, new Var("float", n));
                :}
-              | ID ;
+              | ID:v {:
+                  parser.symbol_table.put(v, new Var((String)parser.stack(-1), null));
+               :};
 
 // Instructions
 

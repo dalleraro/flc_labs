@@ -1,0 +1,171 @@
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {:
+	// code to run at the beginning
+	// NOTE: is better to do table in action code, no need to use parser.table etc
+:};
+
+parser code {:
+
+	public boolean generateExceptions = true;
+	
+	public void report_error(String message, Object info) {
+		StringBuffer m = new StringBuffer(message);
+		if (info instanceof Symbol) {
+			if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+				if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+					int line = (((Symbol)info).left) + 1;
+					int column = (((Symbol)info).right) + 1;
+					m.append(" (line " + line + " column " + column + ")");
+				}
+			}
+			System.err.println(m);
+		}
+	}
+	
+	public Object stack(int position) throws Exception {
+		Object result;
+		if(position > 0) {
+			String msg = "Cannot read stack at positive position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+				//Report_err
+			} else {
+				System.err.println("***" + msg + "***");
+				return null;
+			}
+		}
+		result = ((Symbol)stack.elementAt(tos + position)).value;
+		if(result == null) {
+			String msg = "You read null while accessing stack at position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+			} else {
+				System.err.println("***" + msg + "***");
+			}
+			
+		}
+		return result;
+	}
+:};
+
+
+action code {:
+	HashMap symbol_table = new HashMap();
+
+   public Object stack(int position) throws Exception {
+      return parser.stack(position);
+   }
+
+   public void outln(String msg) {
+      System.out.println(msg);
+   }
+
+   public void out(String msg) {
+      System.out.print(msg+" ");
+   }
+:}
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+// terminals
+terminal S, EQ, RO, CM, RC, CO, CC, C;
+terminal SEP, TOKEN1, TOKEN2, DATE;
+terminal STAT, CASE, PRINT, SWITCH;
+terminal PLUS, MINUS, MUL, DIV;
+terminal String VAR, OP;
+terminal Integer UINT;
+terminal UMINUS;
+
+// non terminals
+non terminal prog;
+non terminal header, tl, t;
+non terminal instructions, instruction, assign, switch, scases, scase, print_l, print;
+non terminal Integer exp, stat, case, exp_l, actions, actione;
+non terminal String nt0, nt1;
+non terminal Object[] nt2; 
+
+precedence left PLUS, MINUS;
+precedence left MUL, DIV;
+precedence left UMINUS;
+
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog              ::=   header SEP instructions ;
+header            ::=   tl DATE S tl DATE S tl
+                    |   tl DATE S tl
+                    |   tl;
+tl                ::=   tl t | ;
+t                 ::=   TOKEN1 S | TOKEN2 S;
+
+
+instructions      ::=   instructions instruction instruction
+                    |   instruction instruction instruction instruction instruction ;
+instruction       ::=   assign
+                    |   switch ;
+assign            ::=   VAR:v EQ exp:x S {: symbol_table.put(v, x); out(v+"="+x); :};
+exp               ::=   exp:x PLUS exp:y {: RESULT = x + y; :}
+                    |   exp:x MINUS exp:y {: RESULT = x - y; :}
+                    |   exp:x MUL exp:y {: RESULT = x * y; :}
+                    |   exp:x DIV exp:y {: RESULT = x / y; :}
+                    |   MINUS exp:x {: RESULT = -x; :} %prec UMINUS
+                    |   RO exp:x RC {: RESULT = x; :}
+                    |   VAR:v {: RESULT = (Integer)symbol_table.get(v); :}
+                    |   UINT:x {: RESULT = x; :}
+                    |   stat:x {: RESULT = x; :}
+                    |   case:x {: RESULT = x; :};
+                 
+stat              ::=   STAT RO OP RC {: RESULT = 0; :}
+                    |   STAT RO OP:o CM nt0 exp_l:x RC {: RESULT = x; :};
+nt0               ::=   {: RESULT = (String)stack(-1); :};
+exp_l             ::=   exp_l:x CM exp:y {:
+                           if(((String)stack(-3)).equals("MIN"))
+                              RESULT = Math.min(x, y);
+                           else
+                              RESULT = Math.max(x, y);
+                        :}
+                    |   exp:x {: RESULT = x; :};
+                           
+case              ::=   CASE RO VAR CM actions:x RC {: RESULT = x; :};
+actions           ::=   actions:x nt1 CM actione:y {:
+                           if(y != 0)
+                              RESULT = y;
+                           else
+                              RESULT = x;
+                        :}
+                    |   actione:x {: RESULT = x; :};
+nt1               ::=   {: RESULT = (String)stack(-2); :};
+actione            ::=   exp:x C exp:y {:
+                           if(x == (Integer)symbol_table.get((String)stack(-4)))
+                              RESULT = y;
+                           else
+                              RESULT = 0;
+                        :}; 
+                        
+switch            ::=   SWITCH VAR CO {: RESULT = (String)stack(-1); :} scases CC S ;
+scases            ::=   scases {: RESULT = (String)stack(-1); :} scase 
+                    |   scase ;
+scase             ::=   CASE exp C nt2 print_l ;
+nt2               ::=   {: 
+                           RESULT = new Object[2];
+                           RESULT[0] = (String)stack(-3);
+                           RESULT[1] = (Integer)stack(-1);
+                        :};
+print_l           ::=   print_l {: RESULT = (Object[])stack(-1); :} print
+                    |   print ;
+print             ::=   PRINT exp:x S {:
+                           Object[] data = (Object[])stack(-3);
+                           if((Integer)symbol_table.get((String)data[0]) == (Integer)data[1])
+                              out(""+(Integer)data[1] * x);
+                        :};

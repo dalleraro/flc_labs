@@ -1,0 +1,235 @@
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {:
+	// code to run at the beginning
+	// NOTE: is better to do table in action code, no need to use parser.table etc
+:};
+
+parser code {:
+
+	public boolean generateExceptions = true;
+	
+	public void report_error(String message, Object info) {
+		StringBuffer m = new StringBuffer(message);
+		if (info instanceof Symbol) {
+			if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+				if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+					int line = (((Symbol)info).left) + 1;
+					int column = (((Symbol)info).right) + 1;
+					m.append(" (line " + line + " column " + column + ")");
+				}
+			}
+			System.err.println(m);
+		}
+	}
+	
+	public Object stack(int position) throws Exception {
+		Object result;
+		if(position > 0) {
+			String msg = "Cannot read stack at positive position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+				//Report_err
+			} else {
+				System.err.println("***" + msg + "***");
+				return null;
+			}
+		}
+		result = ((Symbol)stack.elementAt(tos + position)).value;
+		if(result == null) {
+			String msg = "You read null while accessing stack at position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+			} else {
+				System.err.println("***" + msg + "***");
+			}
+			
+		}
+		return result;
+	}
+:};
+
+
+action code {:
+	
+	public Map<String, Map<String, Integer>> table = new HashMap<>();
+
+	public class Property {
+		public String key;
+		public int value;
+
+		public Property(String key, Integer value) {
+			this.key = key;
+			this.value = value;
+		}
+	}
+
+:}
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+terminal SEP;
+terminal DOT, S, EQ, BO, BC, HASH, AND, OR, EQEQ, STATE, START, PRINT, IF, THEN, ELSE;
+terminal HOUR, CODE, IP;
+terminal String ID;
+terminal Integer INT;
+
+non terminal prog;
+non terminal header, hour_ip_list, hour, ip, code_;
+non terminal states, state;
+non terminal Map variable_declaration_list;
+non terminal Property variable_declaration;
+non terminal transitions;
+non terminal String start_cmd, command_list_e, command, print_cmd, if_cmd;
+non terminal Boolean bool_expr;
+non terminal Integer number, variable;
+
+precedence left OR;
+precedence left AND;
+
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog ::= header SEP states SEP transitions {:
+		System.out.println("Correct");
+	:}
+;
+
+header ::= hour_ip_list code_ hour_ip_list
+	| code_ hour_ip_list
+	| hour_ip_list code_
+	| code_ code_ code_
+;
+
+hour_ip_list ::= hour_ip_list hour
+	| hour_ip_list ip
+	| hour
+	| ip
+;
+
+hour ::= HOUR S
+;
+
+ip ::= IP S
+;
+
+code_ ::= CODE S
+;
+
+// states
+
+states ::= states state state
+	| state state state
+;
+
+state ::= STATE ID:a BO variable_declaration_list:b BC {:
+		table.put(a, b);
+	:}
+;
+
+variable_declaration_list ::= variable_declaration_list:a variable_declaration:b {:
+		RESULT = a;
+		RESULT.put(b.key, b.value);
+	:}
+	| variable_declaration:a {:
+		RESULT = new HashMap<String, Integer>();
+		RESULT.put(a.key, a.value);
+	:}
+;
+
+variable_declaration ::= ID:a EQ INT:b S {:
+		RESULT = new Property(a, b);
+	:}
+;
+
+// transitions
+
+transitions ::= start_cmd command_list_e
+;
+
+start_cmd ::= START ID:a S {:
+		RESULT = a;
+	:}
+;
+
+command_list_e ::= command_list_e command:a {:
+		RESULT = a;
+	:}
+	| {:
+		RESULT = (String)parser.stack(0);
+	:}
+;
+
+command ::= print_cmd:a {:
+		RESULT = a;
+	:}
+	| if_cmd:a {:
+		RESULT = a;
+	:}
+;
+
+print_cmd ::= PRINT S {:
+		RESULT = (String)parser.stack(-2);
+		System.out.println(RESULT);
+	:}
+;
+
+if_cmd ::= IF STATE ID:a HASH bool_expr:b THEN STATE ID:c S {:
+		String current_state = (String)parser.stack(-9);
+		if(current_state.equals(a)) {
+			if(b) {
+				RESULT = c;
+			} else {
+				RESULT = current_state;
+			}
+		} else {
+			RESULT = current_state;
+		}
+	:}
+	| IF STATE ID:a HASH bool_expr:b THEN STATE ID:c S ELSE STATE ID:d S {:
+		String current_state = (String)parser.stack(-13);
+		if(current_state.equals(a)) {
+			if(b) {
+				RESULT = c;
+			} else {
+				RESULT = d;
+			}
+		} else {
+			RESULT = current_state;
+		}
+	:}
+;
+
+bool_expr ::= bool_expr:a AND bool_expr:b {:
+		RESULT = a && b;
+	:}
+	| bool_expr:a OR bool_expr:b {:
+		RESULT = a || b;
+	:}
+	| number:a EQEQ number:b {:
+		RESULT = a == b;
+	:}
+;
+
+number ::= INT:a {:
+		RESULT = a;
+	:}
+	| variable:a {:
+		RESULT = a;
+	:}
+;
+
+variable ::= ID:a DOT ID:b {:
+		RESULT = table.get(a).get(b);
+	:}
+;

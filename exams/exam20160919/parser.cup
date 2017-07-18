@@ -1,0 +1,246 @@
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {:
+:};
+
+parser code {:
+
+	public boolean generateExceptions = true;
+	
+	public void report_error(String message, Object info) {
+		StringBuffer m = new StringBuffer(message);
+		if (info instanceof Symbol) {
+			if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+				if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+					int line = (((Symbol)info).left) + 1;
+					int column = (((Symbol)info).right) + 1;
+					m.append(" (line " + line + " column " + column + ")");
+				}
+			}
+			System.err.println(m);
+		}
+	}
+	
+	public Object stack(int position) throws Exception {
+		Object result;
+		if(position > 0) {
+			String msg = "Cannot read stack at positive position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+				//Report_err
+			} else {
+				System.err.println("***" + msg + "***");
+				return null;
+			}
+		}
+		result = ((Symbol)stack.elementAt(tos + position)).value;
+		if(result == null) {
+			String msg = "You read null while accessing stack at position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+			} else {
+				System.err.println("***" + msg + "***");
+			}
+			
+		}
+		return result;
+	}
+:};
+
+
+action code {:
+   public Object stack(int position) throws Exception {
+      return parser.stack(position);
+   }
+
+   public void outln(String msg) {
+      System.out.println(msg);
+   }
+
+   public void out(String msg) {
+      System.out.print(msg);
+   }
+:}
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+// TODO: terminals
+terminal SEP, TOKEN, DATE;
+terminal S, QM, C, RO, RC, CM, HASH, ARROW;
+terminal DASH, SET, STATE_CHANGE1, STATE_CHANGE2, INCREASE, DECREASE, AVG;
+terminal AND, OR, NOT, TRUE, FALSE;
+terminal String WATER, POWER, VAR_QT, OPER;
+terminal Double UREAL;
+//terminal uminus;
+
+// TODO: non terminals
+non terminal prog;
+non terminal header, token_l1, date_l1, token_l2;
+non terminal states, commands, command, state_ch1, state_ch2;
+non terminal HashMap set;
+non terminal String elem;
+non terminal Boolean expr;
+non terminal Double avg, avgt, avgf, var_list, var;
+non terminal Double[] f_list_e, f_list, f_elem, nt0, nt1;
+
+// TODO: precedences (declare before lower precedences)
+//precedence right uminus;
+// to be used like:
+//MINUS UINT:a  {:
+//		RESULT = -a;
+//	:} %prec uminus
+
+precedence left OR;
+precedence left AND;
+precedence left NOT;
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog ::= header SEP states{:
+		      System.out.println("Correct");
+	      :};
+	      
+header      ::=   token_l1 date_l1
+              |   DATE token_l2 DATE token_l2 DATE token_l2 ;
+token_l1    ::=   token_l1 TOKEN TOKEN | TOKEN TOKEN TOKEN ;
+date_l1     ::=   date_l1 DATE DATE DATE DATE DATE DATE DATE DATE DATE DATE | DATE DATE DATE ;
+token_l2    ::=   token_l2 TOKEN | ;	      
+
+states      ::=   set {:
+                     HashMap<String, Double> values = (HashMap)stack(0);  
+                     outln("power: "+values.get("POWER")+", water: "+values.get("WATER"));
+                     RESULT = values;
+                  :} commands;
+set         ::=   SET WATER UREAL:x DASH POWER UREAL:y S{:
+                     RESULT = new HashMap<String, Double>();
+                     RESULT.put("water", x);
+                     RESULT.put("power", y);
+                  :}
+              |   SET POWER UREAL:x DASH WATER UREAL:y S{:
+                     RESULT = new HashMap<String, Double>();
+                     RESULT.put("WATER", y);
+                     RESULT.put("POWER", x);
+                  :}
+              |   SET POWER UREAL:x S{:
+                     RESULT = new HashMap<String, Double>();
+                     RESULT.put("WATER", new Double(100.0));
+              
+                     RESULT.put("POWER", x);
+                  :}
+              |   SET WATER UREAL:x S{:
+                     RESULT = new HashMap<String, Double>();
+                     RESULT.put("WATER", x);
+                     RESULT.put("POWER", new Double(100.0));
+                  :}
+              |   {:
+                     RESULT = new HashMap<String, Double>();
+                     RESULT.put("WATER", new Double(100.0));
+                     RESULT.put("POWER", new Double(100.0));
+                  :};
+commands    ::=   commands {: RESULT = (HashMap<String, Double>)stack(-1); :} command
+              |   command ;
+command     ::=   state_ch1 {:
+                     HashMap<String, Double> values = (HashMap)stack(-1);  
+                     outln("power: "+values.get("POWER")+", water: "+values.get("WATER"));
+                  :}
+              |   state_ch2 {:
+                     HashMap<String, Double> values = (HashMap)stack(-1);  
+                     outln("power: "+values.get("POWER")+", water: "+values.get("WATER"));
+                  :};
+state_ch1   ::=   STATE_CHANGE1 INCREASE elem:e expr:b QM avgt:t C avgf:f S {:
+                     HashMap<String, Double> values = (HashMap)stack(-9);
+                     Double value = values.get(e);
+                     if(b)
+                        value += t;
+                     else
+                        value += f;
+                     values.put(e, value);
+                  :}
+              |   STATE_CHANGE1 DECREASE elem:e expr:b QM avgt:t C avgf:f S {:
+                     HashMap<String, Double> values = (HashMap)stack(-9);
+                     Double value = values.get(e);
+                     if(b)
+                        value -= t;
+                     else
+                        value -= f;
+                     values.put(e, value);
+                  :};
+elem        ::=   WATER:w {: RESULT = w; :}
+              |   POWER:p {: RESULT = p; :};
+avgt        ::=   avg:x {: RESULT = x; :};
+avgf        ::=   avg:x {: RESULT = x; :};
+avg         ::=   AVG RO f_list_e:x RC {:
+                     if(x[1] != 0)
+                        RESULT = x[0] / x[1];
+                     else 
+                        RESULT = 0.0;
+                  :};
+f_list_e    ::=   f_list:x {: RESULT = x; :}
+              |   {: 
+                     RESULT = new Double[2];
+                     RESULT[0] = new Double(0);
+                     RESULT[1] = new Double(0);
+                  :};
+f_list      ::=   f_list:x CM f_elem:y {: 
+                     RESULT = new Double[2];
+                     RESULT[0] = x[0] + y[0];
+                     RESULT[1] = x[1] + y[1];
+                  :}
+              |   f_elem:x {: 
+                     RESULT = x;
+                  :};
+              
+f_elem      ::=   avg:x {: 
+                     RESULT = new Double[2];
+                     RESULT[0] = x;
+                     RESULT[1] = new Double(1);
+                  :}
+              |   UREAL:x {: 
+                     RESULT = new Double[2];
+                     RESULT[0] = x;
+                     RESULT[1] = new Double(1);
+                  :};
+
+
+
+expr        ::=   expr:x AND expr:y {: RESULT = x && y; :}
+              |   expr:x OR expr:y {: RESULT = x || y; :}
+              |   NOT expr:x {: RESULT = !x; :}
+              |   RO expr:x RC {: RESULT = x; :}
+              |   TRUE {: RESULT = true; :}
+              |   FALSE {: RESULT = false; :}; 
+              
+              
+state_ch2   ::=   STATE_CHANGE2 UREAL VAR_QT UREAL VAR_QT HASH elem:e ARROW nt0 var_list:x S {:
+                     HashMap<String, Double> values = (HashMap)stack(-11);
+                     Double value = values.get(e);
+                     value += x;
+                     values.put(e, value);
+                  :};
+nt0         ::=   {: 
+                     RESULT = new Double[2];
+                     RESULT[0] = (Double)stack(-6);
+                     RESULT[1] = (Double)stack(-4);
+                  :};
+var_list    ::=   var_list:x CM nt1 var:y {: RESULT = x+y; :} 
+              |   var:x {: RESULT = x; :};
+nt1         ::=   {: RESULT = (Double[])stack(-2); :};
+var         ::=   VAR_QT:v OPER:o UREAL:x {:
+                     Double[] mods = (Double[])stack(-3);
+                     if(v.equals("PRESSURE"))
+                        RESULT = x * mods[0];
+                     else
+                        RESULT = x * mods[1];
+                     if(o.equals("SUB"))
+                        RESULT = -RESULT;
+                  :};

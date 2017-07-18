@@ -1,0 +1,266 @@
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {:
+	// code to run at the beginning
+	// NOTE: is better to do table in action code, no need to use parser.table etc
+:};
+
+parser code {:
+
+	public boolean generateExceptions = true;
+	
+	public void report_error(String message, Object info) {
+		StringBuffer m = new StringBuffer(message);
+		if (info instanceof Symbol) {
+			if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+				if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+					int line = (((Symbol)info).left) + 1;
+					int column = (((Symbol)info).right) + 1;
+					m.append(" (line " + line + " column " + column + ")");
+				}
+			}
+			System.err.println(m);
+		}
+	}
+	
+	public Object stack(int position) throws Exception {
+		Object result;
+		if(position > 0) {
+			String msg = "Cannot read stack at positive position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+				//Report_err
+			} else {
+				System.err.println("***" + msg + "***");
+				return null;
+			}
+		}
+		result = ((Symbol)stack.elementAt(tos + position)).value;
+		if(result == null) {
+			String msg = "You read null while accessing stack at position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+			} else {
+				System.err.println("***" + msg + "***");
+			}
+			
+		}
+		return result;
+	}
+:};
+
+
+action code {:
+	
+	public HashMap<String, HashMap<String, Integer>> table = new HashMap<>();
+	
+	public class Point {
+		int x, y, z;
+
+		public Point(int x, int y, int z) {
+			this.x = x;
+			this.y = y;
+			this.z = z;
+		}
+	}
+
+	public class Attribute {
+		String key;
+		int value;
+
+		public Attribute(String key, Integer value) {
+			this.key = key;
+			this.value = value;
+		}
+	}
+
+	public class Burden {
+		boolean enable;
+		Point p;
+
+		public Burden(Boolean enable, Point p) {
+			this.enable = enable;
+			this.p = p;
+		}
+	}
+:}
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+terminal SEP, DOT, CM, C, S, BO, BC;
+terminal START, VAR, MOVE, WHEN, THEN, DONE, AND, OR, NOT, NOTEQ, EQEQ;
+terminal CODE, DATE;
+terminal Integer INTEGER;
+terminal String NAME;
+
+non terminal prog;
+non terminal header, code_list_e, code_, date;
+non terminal commands;
+non terminal Burden command_list_e, start_cmd, command;
+non terminal var_cmd;
+non terminal Burden move_cmd, when_cmd;
+non terminal HashMap attribute_list;
+non terminal Attribute attribute;
+non terminal Integer quantity;
+non terminal Boolean bool_expr;
+non terminal Burden move_list;
+
+non terminal Burden nt_0, nt_enabler;
+
+precedence left OR;
+precedence left AND;
+precedence right NOT;
+
+
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog ::= header SEP commands {:
+		System.out.println("Correct");
+	:}
+;
+
+// header
+
+header ::= code_list_e date code_list_e
+	| code_list_e
+;
+
+code_list_e ::= code_list_e code_
+	|
+;
+
+code_ ::= CODE S
+;
+
+date ::= DATE S
+;
+
+// commands
+
+commands ::= start_cmd command_list_e
+;
+
+command_list_e ::= command_list_e command:a {:
+		RESULT = a;
+	:}
+	| nt_0:a {:
+		RESULT = a;
+	:}
+;
+
+start_cmd ::= START INTEGER:a CM INTEGER:b CM INTEGER:c S {:
+		Point p = new Point(a, b, c);
+		RESULT = new Burden(true, p);
+	:}
+;
+
+command ::= nt_0:a var_cmd {:
+		// var_cmd does not modify position
+		RESULT = a;
+	:}
+	| move_cmd:a {:
+		// move_cmd modifies position
+		RESULT = a;
+	:}
+	| when_cmd:a {:
+		// when_cmd can modify position
+		RESULT = a;
+	:}
+;
+
+var_cmd ::= VAR BO attribute_list:b BC NAME:c S {:
+		table.put(c, b);
+	:}
+;
+
+attribute_list ::= attribute_list:a CM attribute:b CM attribute:c CM attribute:d {:
+		RESULT = a;
+		RESULT.put(b.key, b.value);
+		RESULT.put(c.key, c.value);
+		RESULT.put(d.key, d.value);
+	:}
+	| attribute:a CM attribute:b CM attribute:c {:
+		RESULT = new HashMap<String, Integer>();
+		RESULT.put(a.key, a.value);
+		RESULT.put(b.key, b.value);
+		RESULT.put(c.key, c.value);
+	:}
+;
+
+attribute ::= NAME:a C INTEGER:b {:
+		RESULT = new Attribute(a, b);
+	:}
+;
+
+move_cmd ::= nt_0:a MOVE quantity:b CM quantity:c CM quantity:d S {:
+		Point p;
+		if(a.enable) {
+			p = new Point(a.p.x + b, a.p.y + c, a.p.z + d);
+			System.out.println("POSITION: X=" + p.x + " Y=" + p.y + " Z=" + p.z);
+		} else {
+			p = new Point(a.p.x, a.p.y, a.p.z);
+		}
+		RESULT = new Burden(a.enable, p);
+	:}
+;
+
+quantity ::= INTEGER:a {:
+		RESULT = a;
+	:}
+	| NAME:a DOT NAME:b {:
+		RESULT = table.get(a).get(b);
+	:}
+;
+
+when_cmd ::= WHEN bool_expr THEN nt_enabler move_list:a DONE S {:
+		RESULT = a;
+	:}
+;
+
+nt_enabler ::= {:
+		boolean enable = (Boolean)parser.stack(-1);
+		Burden old_b = (Burden)parser.stack(-3);
+		RESULT = new Burden(enable, old_b.p);
+	:}
+;
+
+bool_expr ::= bool_expr:a AND bool_expr:b {:
+		RESULT = a && b;
+	:}
+	| bool_expr:a OR bool_expr:b {:
+		RESULT = a || b;
+	:}
+	| NOT bool_expr:a {:
+		RESULT = !a;
+	:}
+	| quantity:a EQEQ quantity:b {:
+		RESULT = a.intValue() == b.intValue();
+	:}
+	| quantity:a NOTEQ quantity:b {:
+		RESULT = a.intValue() != b.intValue();
+	:}
+;
+
+move_list ::= move_list move_cmd:a {:
+		RESULT = a;
+	:}
+	| move_cmd:a {:
+		RESULT = a;
+	:}
+;
+
+nt_0 ::= {:
+		RESULT = (Burden)parser.stack(0);
+	:}
+;

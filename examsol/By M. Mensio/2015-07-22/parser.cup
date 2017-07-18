@@ -1,0 +1,232 @@
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {:
+	// code to run at the beginning
+	// NOTE: is better to do table in action code, no need to use parser.table etc
+:};
+
+parser code {:
+
+	public boolean generateExceptions = true;
+	
+	public void report_error(String message, Object info) {
+		StringBuffer m = new StringBuffer(message);
+		if (info instanceof Symbol) {
+			if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+				if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+					int line = (((Symbol)info).left) + 1;
+					int column = (((Symbol)info).right) + 1;
+					m.append(" (line " + line + " column " + column + ")");
+				}
+			}
+			System.err.println(m);
+		}
+	}
+	
+	public Object stack(int position) throws Exception {
+		Object result;
+		if(position > 0) {
+			String msg = "Cannot read stack at positive position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+				//Report_err
+			} else {
+				System.err.println("***" + msg + "***");
+				return null;
+			}
+		}
+		result = ((Symbol)stack.elementAt(tos + position)).value;
+		if(result == null) {
+			String msg = "You read null while accessing stack at position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+			} else {
+				System.err.println("***" + msg + "***");
+			}
+			
+		}
+		return result;
+	}
+:};
+
+
+action code {:
+	
+	public HashMap<String, Boolean> table = new HashMap<>();
+	
+:}
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+terminal SEP, EQEQ, EQ, AND, OR, NOT, PLUS, MINUS, STAR, RO, RC, S, CM, OFFSET_START, SC;
+terminal TOKEN1, TOKEN2, TOKEN3;
+terminal EVALUATE, CASE_TRUE, CASE_FALSE, SAVE;
+terminal Boolean BOOL;
+terminal Integer UINT;
+terminal String VARIABLE;
+terminal uminus;
+
+non terminal prog;
+non terminal header, token12_list_e, token1, token2, token3;
+non terminal program;
+non terminal Boolean instruction, evaluate_instr, case_instr, save_instr;
+non terminal Boolean bool_expr;
+non terminal Integer integer;
+non terminal assignment_list;
+non terminal assignment;
+
+non terminal nt_0, nt_off, nt_off_inc;
+
+precedence left OR, PLUS;
+precedence left AND, STAR;
+precedence left EQEQ;
+precedence right NOT, uminus;
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog ::= header SEP program {:
+		System.out.println("Correct");
+	:}
+;
+
+header ::= token12_list_e token3 token12_list_e token3 token12_list_e
+;
+
+token12_list_e ::= token12_list_e token1
+	| token12_list_e token2
+	|
+;
+
+token1 ::= TOKEN1 S
+;
+
+token2 ::= TOKEN2 S
+;
+
+token3 ::= TOKEN3 S
+;
+
+// program
+
+program ::= instruction instruction program
+	| instruction instruction instruction instruction {:
+		/*for(Map.Entry<String, Boolean> entry : table.entrySet()) {
+			System.out.println(entry.getKey() + ": " + entry.getValue());
+		}*/
+	:}
+;
+
+instruction ::= evaluate_instr:a {:
+		RESULT = a;
+		System.out.println(a? "TRUE" : "FALSE");
+	:}
+	| case_instr:a {:
+		RESULT = a;
+		System.out.println(a? "TRUE" : "FALSE");
+	:}
+	| save_instr:a {:
+		RESULT = a;
+		System.out.println(a? "TRUE" : "FALSE");
+	:}
+;
+
+bool_expr ::= integer:a EQEQ integer:b {:
+		RESULT = a == b;
+	:}
+	| bool_expr:a EQEQ bool_expr:b {:
+		RESULT = a == b;
+	:}
+	| bool_expr:a AND bool_expr:b {:
+		RESULT = a && b;
+	:}
+	| bool_expr:a OR bool_expr:b {:
+		RESULT = a || b;
+	:}
+	| NOT bool_expr:a {:
+		RESULT = !a;
+	:}
+	| BOOL:a {:
+		RESULT = a;
+	:}
+	| VARIABLE:a {:
+		RESULT = table.get(a);
+	:}
+	| RO bool_expr:a RC {:
+		RESULT = a;
+	:}
+;
+
+integer ::= integer:a PLUS integer:b {:
+		RESULT = a + b;
+	:}
+	| integer:a STAR integer:b {:
+		RESULT = a * b;
+	:}
+	| RO integer:a RC {:
+		RESULT = a;
+	:}
+	| UINT:a {:
+		RESULT = a;
+	:}
+	| MINUS UINT:a  {:
+		RESULT = -a;
+	:} %prec uminus
+;
+
+evaluate_instr ::= EVALUATE bool_expr:a S {:
+		RESULT = a;
+	:}
+;
+
+case_instr ::= nt_0:a CASE_TRUE bool_expr:b CM CASE_FALSE bool_expr:c S {:
+		boolean status = (Boolean)a;
+		RESULT = (Boolean)a? b : c;
+	:}
+;
+
+save_instr ::= SAVE nt_off assignment_list S {:
+		RESULT = false;
+	:}
+;
+
+assignment_list ::= assignment_list CM nt_off_inc assignment
+	| assignment
+;
+
+assignment ::= VARIABLE:b EQ bool_expr:c {:
+		table.put(b, c);
+	:}
+	| VARIABLE:b EQ OFFSET_START integer:c SC {:
+		int offset = (Integer)parser.stack(-5);
+		if(c >= 0) {
+			throw new Exception("You want to read the future?");
+		}
+		//System.out.println("offset: " + offset + " c:" + c);
+		table.put(b, (Boolean)parser.stack(offset + c -4));
+	:}
+;
+
+nt_0 ::= {:
+		RESULT = parser.stack(0);
+	:}
+;
+
+nt_off ::= {:
+		RESULT = -2;
+	:}
+;
+
+nt_off_inc ::= {:
+		RESULT = (Integer)parser.stack(-2) - 3;
+	:}
+;

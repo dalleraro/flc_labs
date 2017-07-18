@@ -1,0 +1,309 @@
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {:
+	// code to run at the beginning
+	// NOTE: is better to do table in action code, no need to use parser.table etc
+:};
+
+parser code {:
+
+	public boolean generateExceptions = true;
+	
+	public void report_error(String message, Object info) {
+		StringBuffer m = new StringBuffer(message);
+		if (info instanceof Symbol) {
+			if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+				if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+					int line = (((Symbol)info).left) + 1;
+					int column = (((Symbol)info).right) + 1;
+					m.append(" (line " + line + " column " + column + ")");
+				}
+			}
+			System.err.println(m);
+		}
+	}
+	
+	public Object stack(int position) throws Exception {
+		Object result;
+		if(position > 0) {
+			String msg = "Cannot read stack at positive position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+				//Report_err
+			} else {
+				System.err.println("***" + msg + "***");
+				return null;
+			}
+		}
+		result = ((Symbol)stack.elementAt(tos + position)).value;
+		if(result == null) {
+			String msg = "You read null while accessing stack at position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+			} else {
+				System.err.println("***" + msg + "***");
+			}
+			
+		}
+		return result;
+	}
+:};
+
+
+action code {:
+	
+	public HashMap<String, HashMap<String, Integer>> table = new HashMap<>();
+	
+	public class Attribute {
+		String key;
+		int value;
+
+		public Attribute(String key, Integer value) {
+			this.key = key;
+			this.value = value;
+		}
+	}
+	
+	
+:}
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+terminal SEP, EQ, SO, SC, CM, S;
+terminal INIT, DEFAULT, WHEN, DO, DONE, PRINT, CASE, NEXT;
+terminal EQEQ, OR, AND, NOT, RO, RC, DOT;
+terminal CODE, HOUR, NUMBER;
+
+terminal String STATE_NAME, ATTRIBUTE_NAME;
+terminal Integer SIGNED_INTEGER;
+terminal String QUOTED_STRING;
+
+non terminal prog;
+non terminal header, header_seq_1, hour_list, code_list, number_list, header_seq_2;
+non terminal code_, hour, number;
+
+non terminal states, state;
+non terminal HashMap attribute_list;
+non terminal Attribute attribute;
+
+non terminal transitions;
+non terminal String initial_command, init_command, default_command;
+non terminal String when_list, when_command;
+non terminal Boolean bool_expr;
+non terminal Integer state_attribute;
+non terminal String case_print_command_list;
+non terminal String print_command, case_command;
+
+non terminal nt_1, nt_2, nt_3;
+
+precedence left OR;
+precedence right AND;
+precedence right NOT;
+
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog ::= header SEP states SEP transitions {:
+		System.out.println("Correct");
+	:}
+;
+
+// header
+
+header ::= header_seq_1
+	| header_seq_2
+;
+
+header_seq_1 ::= hour_list code_list number_list
+	| hour_list code_list
+;
+
+hour_list ::= hour_list hour
+	| hour hour
+;
+
+code_list ::= code_list code_ code_
+	| code_
+;
+
+number_list ::= number number number number
+	| number number
+;
+
+header_seq_2 ::= code_ number number number
+	| number code_ number number
+	| number number code_ number
+	| number number number code_
+;
+
+code_ ::= CODE S
+;
+
+hour ::= HOUR S
+;
+
+number ::= NUMBER S
+;
+
+// states
+
+states ::= states state state
+	| state state state
+;
+
+state ::= STATE_NAME:a EQ SO attribute_list:b SC S {:
+		table.put(a, b);
+	:}
+;
+
+attribute_list ::= attribute_list:a CM attribute:b {:
+		RESULT = a;
+		RESULT.put(b.key, b.value);
+	:}
+	| attribute:a {:
+		RESULT = new HashMap<String, Integer>();
+		RESULT.put(a.key, a.value);
+	:}
+;
+
+attribute ::= ATTRIBUTE_NAME:a EQ SIGNED_INTEGER:b {:
+		RESULT = new Attribute(a, b);
+	:}
+;
+
+// transitions
+
+transitions ::= initial_command when_list
+;
+
+initial_command ::= init_command:a {:
+		RESULT = a;
+		System.out.println(a);
+	:}
+	| default_command:a {:
+		RESULT = a;
+		System.out.println(a);
+	:}
+;
+
+init_command ::= INIT STATE_NAME:a S {:
+		RESULT = a;
+	:}
+;
+
+default_command ::= DEFAULT S {:
+		RESULT = "S0";
+	:}
+;
+
+when_list ::= when_list:a when_command {:
+		// propagate current state
+		RESULT = a;
+	:}
+	| when_command:a {:
+		RESULT = a;
+	:}
+;
+
+// nt_3 and nt_2 put in the right place (immediately before the case_print_command_list) the current state name and the boolean expression
+when_command ::= WHEN bool_expr DO nt_3 nt_2 case_print_command_list:a DONE S {:
+		if(a != null) {
+			// change state only after a full when_command has been analyzed
+			RESULT = a;
+			System.out.println(a);
+		} else {
+			// keep state
+			RESULT = (String)parser.stack(-8);
+		}
+	:}
+;
+
+bool_expr ::= state_attribute:a EQEQ SIGNED_INTEGER:b {:
+		if(a.equals(b)) {
+			RESULT = true;
+		} else {
+			RESULT = false;
+		}
+	:}
+	| bool_expr:a AND bool_expr:b {:
+		RESULT = a && b;
+	:}
+	| bool_expr:a OR bool_expr:b {:
+		RESULT = a || b;
+	:}
+	| NOT bool_expr:a {:
+		RESULT = !a;
+	:}
+	| RO bool_expr:a RC {:
+		RESULT = a;
+	:}
+;
+
+state_attribute ::= STATE_NAME:a DOT ATTRIBUTE_NAME:b {:
+		RESULT = table.get(a).get(b);
+	:}
+;
+
+// nt_2 propagate in the stack the current state name and the enabled flag, right before the commands
+case_print_command_list ::= case_print_command_list:a nt_2 nt_2 print_command {:
+		RESULT = a;
+	:}
+	|  case_print_command_list:a nt_2 nt_2 case_command:b {:
+		RESULT = (a != null)? a : b;
+	:}
+	| print_command {:
+		RESULT = null;
+	:}
+	| case_command:a {:
+		RESULT = a;
+	:}
+;
+
+print_command ::= PRINT QUOTED_STRING:a S {:
+		// the flag is 2 positions before PRINT
+		boolean enabled = (Boolean)parser.stack(-3);
+		if(enabled) {
+			System.out.println(a);
+		}
+	:}
+;
+
+case_command ::= CASE STATE_NAME:a NEXT STATE_NAME:b S {:
+		// the flag is 2 positions before PRINT
+		// the current_state is 3 positions before PRINT
+		boolean enabled = (Boolean)parser.stack(-5);
+		String current_state = (String)parser.stack(-6);
+		if(enabled && current_state.equals(a)) {
+			RESULT = b;
+		} else {
+			RESULT = null;
+		}
+	:}
+;
+
+// markers to move up in the stack relevant informations
+
+nt_1 ::= {:
+		RESULT = parser.stack(-1);
+	:}
+;
+
+nt_2 ::= {:
+		RESULT = parser.stack(-2);
+	:}
+;
+
+nt_3 ::= {:
+		RESULT = parser.stack(-3);
+	:}
+;
