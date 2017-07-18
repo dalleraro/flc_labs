@@ -20,7 +20,7 @@ import java_cup.runtime.*;
 %}
 
 sep = ##
-// TODO: declare here regexp
+
 //token = [0-9]
 //comment = "/*" ~ "*/"
 //comment = "//".*|"/*" ~ "*/"
@@ -30,7 +30,6 @@ sep = ##
 
 %%
 
-// TODO: declare actions
 {sep}               { return sym(sym.SEP);}
  
 //{uint}              { return sym(sym.UINT, Integer.parseInt(yytext())); }
@@ -39,7 +38,4 @@ sep = ##
 //{comment}           {;}
 \r|\n|\r\n|\ |\t    {;}
 
-// effects of this line (to be left as last rule):
-// - commented: exception if input does not match
-// - uncommented: prints on screen non-matching chars, continue scanning input
-//.                  { System.out.println("Scanner Error: " + yytext()); }
+.                  { System.out.println("Scanner Error: " + yytext()); }

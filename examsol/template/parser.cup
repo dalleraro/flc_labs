@@ -4,8 +4,6 @@ import java.util.*;
 import java.io.*;
 
 init with {:
-	// code to run at the beginning
-	// NOTE: is better to do table in action code, no need to use parser.table etc
 :};
 
 parser code {:
@@ -74,14 +72,14 @@ action code {:
 ///// SYMBOLS DECLARATION
 /////////////////////////////////
 
-// TODO: terminals
+// terminals
 terminal SEP;
 //terminal uminus;
 
-// TODO: non terminals
+// non terminals
 non terminal prog;
 
-// TODO: precedences (declare before lower precedences)
+// precedences
 //precedence right uminus;
 // to be used like:
 //MINUS UINT:a  {:
@@ -95,8 +93,5 @@ non terminal prog;
 
 start with prog;
 
-prog ::= {:
-		System.out.println("Correct");
-	:}
-;
+prog        ::= ;
 
