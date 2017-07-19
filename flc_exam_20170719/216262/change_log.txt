@@ -1,0 +1,7 @@
+The program is behaving as expected with the provided input file, and the output is coherent with the one in the example.
+
+However when I tried to modify the CONFIGURE instruction in the input file to make it consider
+only one of the quantities (eg. CONFIGURE TEMPERATURE 20;), 
+I realized that I forgot to consider the S symbol (ie ";") in that version of the instruction.
+
+No other changes were made to the code presented during the test.

@@ -1,0 +1,229 @@
+
+import java_cup.runtime.*;
+import java.util.*;
+import java.io.*;
+
+init with {:
+:};
+
+parser code {:
+
+	public boolean generateExceptions = true;
+	
+	public void report_error(String message, Object info) {
+		StringBuffer m = new StringBuffer(message);
+		if (info instanceof Symbol) {
+			if (((Symbol)info).left != 1 && ((Symbol)info).right != 1) {
+				if (((Symbol)info).left != -1 && ((Symbol)info).right != -1) {
+					int line = (((Symbol)info).left) + 1;
+					int column = (((Symbol)info).right) + 1;
+					m.append(" (line " + line + " column " + column + ")");
+				}
+			}
+			System.err.println(m);
+		}
+	}
+	
+	public Object stack(int position) throws Exception {
+		Object result;
+		if(position > 0) {
+			String msg = "Cannot read stack at positive position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+				//Report_err
+			} else {
+				System.err.println("***" + msg + "***");
+				return null;
+			}
+		}
+		result = ((Symbol)stack.elementAt(tos + position)).value;
+		if(result == null) {
+			String msg = "You read null while accessing stack at position: " + position;
+			if(generateExceptions) {
+				throw new Exception(msg);
+			} else {
+				System.err.println("***" + msg + "***");
+			}
+			
+		}
+		return result;
+	}
+:};
+
+
+action code {:
+	HashMap symbol_table = new HashMap();
+
+   public Object stack(int position) throws Exception {
+      return parser.stack(position);
+   }
+:}
+
+
+//////////////////////////////////
+///// SYMBOLS DECLARATION
+/////////////////////////////////
+
+// terminals
+terminal SEP, TOKEN1, TOKEN2, TOKEN3;
+terminal S, CM, EQ, PLUS, MINUS, STAR, DIV, POW, RO, RC, CO, CC;
+terminal CONF, STORE, AVG, CASE, IS, RANGE, EQUAL;
+terminal String ENTITY, VAR;
+terminal Integer INT;
+terminal UMINUS;
+
+// non terminals
+non terminal prog;
+non terminal header, token1_l, token23_l, token23, token23_3, token12_l, token12, token1, token2, token3;
+non terminal state;
+non terminal HashMap configure;
+
+non terminal commands, command, store, assignments, assignment, case, conditions, condition;
+non terminal range, equal, mod_l, mod;
+non terminal Integer exp, avg, nt0;
+non terminal Object[] nt1, nt2, nt3;
+non terminal Integer[] exp_l;
+
+// precedences
+precedence left PLUS, MINUS;
+precedence left STAR, DIV;
+precedence left POW;
+precedence left UMINUS;
+
+
+//////////////////////////////////
+///// GRAMMAR
+/////////////////////////////////
+
+start with prog;
+
+prog        ::= header SEP state;
+
+//  Header section:
+
+header      ::= token1_l token23_l 
+              | token3 token12_l token3 token12_l;
+
+token1_l    ::= token1_l token1 token1 
+              | token1 token1 token1 ;
+token23_l   ::= token23_3 token23_3 token23_3
+              | token23_3 
+              | token23 token23 ;
+token23_3   ::= token23 token23 token23 ;
+token23     ::= token2 | token3 ;
+
+token12_l   ::= token12_l token12
+              | ;
+token12     ::= token1 | token2 ;
+
+token1      ::= TOKEN1 S ;
+token2      ::= TOKEN2 S ;
+token3      ::= TOKEN3 S ; 
+
+// State section:
+
+state       ::= configure commands ;
+
+configure   ::= CONF ENTITY:e1 INT:v1 ENTITY:e2 INT:v2 S {:
+                    HashMap hm = new HashMap();                    
+                    hm.put(e1, v1);
+                    hm.put(e2, v2);
+                    RESULT = hm;
+                :}
+              | CONF ENTITY:e INT:v S {:
+                    HashMap hm = new HashMap();
+                    hm.put(e, v);
+                    if(e.equals("temperature"))
+                        hm.put("humidity", new Integer(50));
+                    else
+                        hm.put("temperature", new Integer(20));
+                    RESULT = hm;
+                :};
+                        
+
+commands    ::= commands {: RESULT = (HashMap)stack(-1); :} command
+              | ;
+command     ::= store | case ;
+
+store       ::= STORE assignments S ;
+assignments ::= assignments CM assignment
+              | assignment ;
+
+assignment  ::= VAR:v  EQ exp:x {: symbol_table.put(v, x); :};
+
+exp         ::= exp:x PLUS exp:y {: RESULT = x + y; :}
+              | exp:x MINUS exp:y {: RESULT = x - y; :}
+              | exp:x STAR exp:y {: RESULT = x * y; :}
+              | exp:x DIV exp:y {: RESULT = x / y; :}
+              | exp:x POW exp:y {: RESULT = new Integer(""+Math.pow(x, y)); :}
+              | RO exp:x RC {: RESULT = x; :}
+              | PLUS exp:x {: RESULT = x; :} %prec UMINUS
+              | MINUS exp:x {: RESULT = -x; :} %prec UMINUS
+              | INT:x {: RESULT = x; :}
+              | VAR:v {: RESULT = (Integer)symbol_table.get(v); :}
+              | avg:x {: RESULT = x; :};
+
+avg         ::= AVG RO exp_l:x RC {:
+                if(x[1] != 0)
+                    RESULT = x[0]/x[1];
+                else
+                    RESULT = 0; 
+                :};
+exp_l       ::= exp_l:x CM exp:y {:                          
+                    RESULT = x;
+                    RESULT[0] += y;
+                    RESULT[1] += 1;
+                :}
+              | exp:x {:
+                    RESULT = new Integer[2];
+                    RESULT[0] = x;
+                    RESULT[1] = 1;
+                :}
+              | {: RESULT = new Integer[2]; RESULT[0] = 0; RESULT[1] = 9; :};
+
+case        ::= CASE exp IS CO nt1 conditions CC S ;
+nt1         ::= {:
+                    RESULT = new Object[2];
+                    RESULT[0] = (HashMap)stack(-4);
+                    RESULT[1] = (Integer)stack(-2);
+                :}; 
+conditions  ::= conditions {: RESULT = (Object[])stack(-1); :} condition
+              | condition ;
+condition   ::= range | equal ;
+
+range       ::= RANGE exp CM exp CO nt2 mod_l CC;
+nt2         ::= {:
+                    Object[] data = (Object[])stack(-5);
+                    RESULT = new Object[2];
+                    RESULT[0] = data[0];
+                    if((Integer)data[1] > (Integer)stack(-3) && (Integer)data[1] < (Integer)stack(-1))
+                        RESULT[1] = new Boolean(true);
+                    else
+                        RESULT[1] = new Boolean(false);
+                :};
+equal       ::= EQUAL exp CO nt3 mod_l CC;
+nt3         ::= {:
+                    Object[] data = (Object[])stack(-3);
+                    RESULT = new Object[2];
+                    RESULT[0] = data[0];
+                    if((Integer)data[1] == (Integer)stack(-1))
+                        RESULT[1] = new Boolean(true);
+                    else
+                        RESULT[1] = new Boolean(false);
+                :};
+mod_l       ::= mod_l {: RESULT = (Object[])stack(-1); :} mod
+              | ;
+mod         ::= ENTITY:e exp:x S {:
+                    Object[] data = (Object[])stack(-3);
+                    if((Boolean)data[1]){
+                        Integer val = (Integer)((HashMap)data[0]).get(e);
+                        val += x;
+                        ((HashMap)data[0]).put(e, val);
+                        System.out.println("T: "+(Integer)((HashMap)data[0]).get("temperature")+" H: "+(Integer)((HashMap)data[0]).get("humidity"));
+                    }
+                :};
+
+
+
+
+
